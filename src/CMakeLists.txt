@@ -51,6 +51,11 @@ add_executable(
 
 add_compile_definitions(FMT_HEADER_ONLY)
 
+add_executable(
+    fuzzy_goat
+    fuzzy_goat/fuzzy_goat.cc
+)
+
 if (WIN32)
     enable_language(ASM_MASM)
     # This is for winsock / windows.h; without this windows.h imports socket.

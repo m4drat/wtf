@@ -31,7 +31,9 @@
 *.out
 *.app
 
-src/wtf/fuzzer_*
 src/build/
 src/build_msvc/
+src/.cache
 targets/
+
+compile_commands.*
