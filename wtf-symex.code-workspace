@@ -4,5 +4,12 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"clangd.arguments": [
+			"-log=verbose",
+			"-pretty",
+			"--background-index",
+			"--compile-commands-dir=${workspaceFolder}/src/build"
+		]
+	}
 }
