@@ -11,6 +11,8 @@
 #include <fmt/format.h>
 #include <random>
 
+namespace fs = std::filesystem;
+
 int main(int argc, const char *argv[]) {
   //
   // Set up the arguments.
@@ -31,6 +33,14 @@ int main(int argc, const char *argv[]) {
   CLI::App *MasterCmd =
       Wtf.add_subcommand("master", "Master options")->callback([&Opts] {
         //
+        // Use the CWD if the target path hasn't been specified.
+        //
+
+        if (Opts.Master.TargetPath.empty()) {
+          Opts.Master.TargetPath = fs::current_path();
+        }
+
+        //
         // Populate other paths based on the based target path.. unless the user
         // has overriden them.
         //
@@ -41,15 +51,15 @@ int main(int argc, const char *argv[]) {
 
         if (Opts.Master.OutputsPath.empty()) {
           Opts.Master.OutputsPath = Opts.Master.TargetPath / "outputs";
-        };
+        }
 
         if (Opts.Master.CrashesPath.empty()) {
           Opts.Master.CrashesPath = Opts.Master.TargetPath / "crashes";
         }
 
-        if (!std::filesystem::exists(Opts.Master.InputsPath) ||
-            !std::filesystem::exists(Opts.Master.OutputsPath) ||
-            !std::filesystem::exists(Opts.Master.CrashesPath)) {
+        if (!fs::exists(Opts.Master.InputsPath) ||
+            !fs::exists(Opts.Master.OutputsPath) ||
+            !fs::exists(Opts.Master.CrashesPath)) {
           throw CLI::ParseError(
               fmt::format("Expected to find inputs/outputs/crashes directories "
                           "in '{}'.",
@@ -83,8 +93,7 @@ int main(int argc, const char *argv[]) {
       ->required();
 
   MasterCmd->add_option("--target", Opts.Master.TargetPath, "Target path")
-      ->description("Target directory")
-      ->required();
+      ->description("Target directory");
 
   MasterCmd->add_option("--inputs", Opts.Master.InputsPath, "Inputs")
       ->description("Input corpus");
@@ -101,6 +110,16 @@ int main(int argc, const char *argv[]) {
 
   CLI::App *RunCmd =
       Wtf.add_subcommand("run", "Run and trace options")->callback([&Opts] {
+        //
+        // If the state path is empty and a 'state' folder is available, let's
+        // use it.
+        //
+
+        if (Opts.StatePath.empty() && fs::is_directory("state")) {
+          fmt::print("Found a 'state' folder in the cwd, so using it.\n");
+          Opts.StatePath = "state";
+        }
+
         //
         // Populate other paths based on the based state path.
         //
@@ -131,8 +150,7 @@ int main(int argc, const char *argv[]) {
         // Ensure that they exist just as a quick check.
         //
 
-        if (!std::filesystem::exists(Opts.DumpPath) ||
-            !std::filesystem::exists(Opts.CpuStatePath)) {
+        if (!fs::exists(Opts.DumpPath) || !fs::exists(Opts.CpuStatePath)) {
           throw CLI::ParseError(fmt::format("Expected to find state/mem.dmp, "
                                             "state/regs.json files in '{}'.",
                                             Opts.StatePath.string()),
@@ -151,7 +169,7 @@ int main(int argc, const char *argv[]) {
         }
 
 #ifdef LINUX
-        if (!std::filesystem::exists(Opts.SymbolFilePath)) {
+        if (!fs::exists(Opts.SymbolFilePath)) {
           throw CLI::ParseError(
               fmt::format("Expected to find a state/symbol-store.json file in "
                           "'{}'. You need to generate it from Windows.",
@@ -212,13 +230,11 @@ int main(int argc, const char *argv[]) {
 
   RunCmd->add_option("--backend", Opts.Backend, "Execution backend")
       ->transform(CLI::CheckedTransformer(BackendTypeMap, CLI::ignore_case))
-      ->description("Execution backend.")
-      ->required();
+      ->description("Execution backend.");
 
   RunCmd->add_option("--state", Opts.StatePath, "State directory")
       ->check(CLI::ExistingDirectory)
-      ->description("State directory which contains memory and cpu state.")
-      ->required();
+      ->description("State directory which contains memory and cpu state.");
 
   RunCmd
       ->add_option("--guest-files", Opts.GuestFilesPath,
@@ -278,13 +294,12 @@ int main(int argc, const char *argv[]) {
         // Ensure that they exist just as a quick check.
         //
 
-        if (!std::filesystem::exists(Opts.DumpPath) ||
-            !std::filesystem::exists(Opts.CpuStatePath)) {
+        if (!fs::exists(Opts.DumpPath) || !fs::exists(Opts.CpuStatePath)) {
           throw CLI::ParseError(
-              fmt::format("Expected to find a state/mem.dmp file, a "
-                          "state/regs.json file, an inputs directory, an "
-                          "outputs directory, a crashes directory in '{}'.",
-                          Opts.Fuzz.TargetPath.string()),
+              fmt::format(
+                  "Expected to find mem.dmp/regs.json files in '{}/state', "
+                  "inputs/outputs/crashes directories in '{}'.",
+                  Opts.Fuzz.TargetPath.string(), Opts.Fuzz.TargetPath.string()),
               EXIT_FAILURE);
         }
 
@@ -305,7 +320,7 @@ int main(int argc, const char *argv[]) {
         }
 
 #ifdef LINUX
-        if (!std::filesystem::exists(Opts.SymbolFilePath)) {
+        if (!fs::exists(Opts.SymbolFilePath)) {
           throw CLI::ParseError(
               fmt::format("Expected to find a state/symbol-store.json file in "
                           "'{}'; you need to generate it from Windows.",
@@ -317,8 +332,7 @@ int main(int argc, const char *argv[]) {
 
   FuzzCmd->add_option("--backend", Opts.Backend, "Execution backend")
       ->transform(CLI::CheckedTransformer(BackendTypeMap, CLI::ignore_case))
-      ->description("Execution backend.")
-      ->required();
+      ->description("Execution backend.");
 
   FuzzCmd->add_flag("--edges", Opts.Edges, "Edge coverage")
       ->default_val(false)
