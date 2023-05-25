@@ -334,8 +334,17 @@ public:
   template <typename T> OpPair_t<T> LafCmpOperands_EsI(bochscpu_instr_t *Ins) {
     OpPair_t<T> Res = {};
     if constexpr (std::is_same<T, uint64_t>::value) {
+      // BX_CPU_C::CMP_EqIdR
+      Res.Op1 = bochscpu_get_reg64(Cpu_, bochscpu_instr_dst(Ins));
+      Res.Op2 = bochscpu_instr_imm64(Ins);
     } else if constexpr (std::is_same<T, uint32_t>::value) {
+      // BX_CPU_C::CMP_EdIdR
+      Res.Op1 = bochscpu_get_reg32(Cpu_, bochscpu_instr_dst(Ins));
+      Res.Op2 = bochscpu_instr_imm32(Ins);
     } else if constexpr (std::is_same<T, uint16_t>::value) {
+      // BX_CPU_C::CMP_EwIwR
+      Res.Op1 = bochscpu_get_reg16(Cpu_, bochscpu_instr_dst(Ins));
+      Res.Op2 = bochscpu_instr_imm16(Ins);
     } else {
       throw std::runtime_error("Invalid operand size for CMP_E?sI?!");
     }
@@ -369,9 +378,20 @@ public:
 
   template <typename T> OpPair_t<T> LafCmpOperands_EG(bochscpu_instr_t *Ins) {
     OpPair_t<T> Res = {};
+    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
+
     if constexpr (std::is_same<T, uint64_t>::value) {
+      // BX_CPU_C::CMP_EqGqM
+      Res.Op1 = VirtRead8(Address);
+      Res.Op2 = bochscpu_get_reg64(Cpu_, bochscpu_instr_src(Ins));
     } else if constexpr (std::is_same<T, uint32_t>::value) {
+      // BX_CPU_C::CMP_EdGdM
+      Res.Op1 = VirtRead4(Address);
+      Res.Op2 = bochscpu_get_reg64(Cpu_, bochscpu_instr_src(Ins));
     } else if constexpr (std::is_same<T, uint16_t>::value) {
+      // BX_CPU_C::CMP_EwGwM
+      Res.Op1 = VirtRead2(Address);
+      Res.Op2 = bochscpu_get_reg64(Cpu_, bochscpu_instr_src(Ins));
     } else {
       throw std::runtime_error("Invalid operand size for CMP_E?G?!");
     }

@@ -55,6 +55,14 @@ bool Backend_t::VirtRead(const Gva_t Gva, uint8_t *Buffer,
   return true;
 }
 
+uint16_t Backend_t::VirtRead2(const Gva_t Gva) const {
+  uint16_t Ret = 0;
+  if (!VirtReadStruct(Gva, &Ret)) {
+    __debugbreak();
+  }
+  return Ret;
+}
+
 uint32_t Backend_t::VirtRead4(const Gva_t Gva) const {
   uint32_t Ret = 0;
   if (!VirtReadStruct(Gva, &Ret)) {

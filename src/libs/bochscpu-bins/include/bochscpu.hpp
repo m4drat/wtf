@@ -63,6 +63,25 @@ enum class DisasmStyle : uint32_t {
   Gas = 1,
 };
 
+enum class GpRegs : uint32_t {
+  Rax = 0,
+  Rcx = 1,
+  Rdx = 2,
+  Rbx = 3,
+  Rsp = 4,
+  Rbp = 5,
+  Rsi = 6,
+  Rdi = 7,
+  R8 = 8,
+  R9 = 9,
+  R10 = 10,
+  R11 = 11,
+  R12 = 12,
+  R13 = 13,
+  R14 = 14,
+  R15 = 15,
+};
+
 using bochscpu_cpu_t = void*;
 
 /// FFI Hook object
@@ -234,6 +253,18 @@ void bochscpu_cpu_set_state_no_flush(bochscpu_cpu_t p, const bochscpu_cpu_state_
 
 void bochscpu_cpu_set_exception(bochscpu_cpu_t p, uint32_t vector, uint16_t error);
 
+uint64_t bochscpu_get_reg64(bochscpu_cpu_t p, GpRegs reg);
+
+void bochscpu_set_reg64(bochscpu_cpu_t p, GpRegs reg, uint64_t val);
+
+uint32_t bochscpu_get_reg32(bochscpu_cpu_t p, GpRegs reg);
+
+void bochscpu_set_reg32(bochscpu_cpu_t p, GpRegs reg, uint32_t val);
+
+uint16_t bochscpu_get_reg16(bochscpu_cpu_t p, GpRegs reg);
+
+void bochscpu_set_reg16(bochscpu_cpu_t p, GpRegs reg, uint16_t val);
+
 uint64_t bochscpu_cpu_rax(bochscpu_cpu_t p);
 
 void bochscpu_cpu_set_rax(bochscpu_cpu_t p, uint64_t val);
@@ -366,9 +397,11 @@ uint32_t bochscpu_instr_imm32(bochscpu_instr_t p);
 
 uint64_t bochscpu_instr_imm64(bochscpu_instr_t p);
 
-uint32_t bochscpu_instr_src(bochscpu_instr_t p);
+GpRegs bochscpu_instr_src(bochscpu_instr_t p);
 
-uint32_t bochscpu_instr_dst(bochscpu_instr_t p);
+GpRegs bochscpu_instr_dst(bochscpu_instr_t p);
+
+uint64_t bochscpu_instr_resolve_addr(bochscpu_instr_t p);
 
 uint32_t bochscpu_opcode_disasm(uint32_t is32,
                                 uint32_t is64,

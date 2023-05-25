@@ -434,15 +434,18 @@ BochscpuBackend_t::LafExtract64BitOperands(bochscpu_instr_t *Ins) {
 
   switch (Op) {
   case BochsCmpIns_t::BX_IA_CMP_RAXId:
+    LafCompcovDebugPrint("RAXId\n");
     Operands = LafCmpOperands_REGI<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EqsIb:
     Operands = LafCmpOperands_EsI<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EqId:
+    LafCompcovDebugPrint("EqId\n");
     Operands = LafCmpOperands_EI<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_GqEq:
+    LafCompcovDebugPrint("GqEq\n");
     Operands = LafCmpOperands_GE<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EqGq:
@@ -464,15 +467,18 @@ BochscpuBackend_t::LafExtract32BitOperands(bochscpu_instr_t *Ins) {
 
   switch (Op) {
   case BochsCmpIns_t::BX_IA_CMP_EAXId:
+    LafCompcovDebugPrint("EAXId\n");
     Operands = LafCmpOperands_REGI<uint32_t>(Ins);
     break;
-  case BochsCmpIns_t::BX_IA_CMP_EdId:
+  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
     Operands = LafCmpOperands_EsI<uint32_t>(Ins);
     break;
-  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
+  case BochsCmpIns_t::BX_IA_CMP_EdId:
+    LafCompcovDebugPrint("EdId\n");
     Operands = LafCmpOperands_EI<uint32_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_GdEd:
+    LafCompcovDebugPrint("GdEd\n");
     Operands = LafCmpOperands_GE<uint32_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EdGd:
@@ -496,10 +502,10 @@ BochscpuBackend_t::LafExtract16BitOperands(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_AXIw:
     Operands = LafCmpOperands_REGI<uint16_t>(Ins);
     break;
-  case BochsCmpIns_t::BX_IA_CMP_EwIw:
+  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
     Operands = LafCmpOperands_EsI<uint16_t>(Ins);
     break;
-  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
+  case BochsCmpIns_t::BX_IA_CMP_EwIw:
     Operands = LafCmpOperands_EI<uint16_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_GwEw:
@@ -541,10 +547,11 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EqId:
   case BochsCmpIns_t::BX_IA_CMP_GqEq:
   case BochsCmpIns_t::BX_IA_CMP_EqGq: {
-    LafCompcovDebugPrint(
-        "Extracting 64-bit operands for comparison: {:#x} {}\n", Rip,
-        std::string(DisasmBuffer.data()));
     OpPair64_t operands = LafExtract64BitOperands(Ins);
+    LafCompcovDebugPrint("Extracting 64-bit operands for comparison: {:#x} {} "
+                         "-> CMP({:#x}, {:#x})\n",
+                         Rip, std::string(DisasmBuffer.data()), operands.Op1,
+                         operands.Op2);
     LafHandle64BitIntCmp(operands.Op1, operands.Op2);
     return true;
   }
@@ -554,10 +561,11 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EdsIb:
   case BochsCmpIns_t::BX_IA_CMP_GdEd:
   case BochsCmpIns_t::BX_IA_CMP_EdGd: {
-    LafCompcovDebugPrint(
-        "Extracting 32-bit operands for comparison: {:#x} {}\n", Rip,
-        std::string(DisasmBuffer.data()));
     OpPair32_t operands = LafExtract32BitOperands(Ins);
+    LafCompcovDebugPrint("Extracting 32-bit operands for comparison: {:#x} {} "
+                         "-> CMP({:#x}, {:#x})\n",
+                         Rip, std::string(DisasmBuffer.data()), operands.Op1,
+                         operands.Op2);
     LafHandle32BitIntCmp(operands.Op1, operands.Op2);
     return true;
   }
@@ -567,10 +575,11 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EwsIb:
   case BochsCmpIns_t::BX_IA_CMP_GwEw:
   case BochsCmpIns_t::BX_IA_CMP_EwGw: {
-    LafCompcovDebugPrint(
-        "Extracting 16-bit operands for comparison: {:#x} {}\n", Rip,
-        std::string(DisasmBuffer.data()));
     OpPair16_t operands = LafExtract16BitOperands(Ins);
+    LafCompcovDebugPrint("Extracting 16-bit operands for comparison: {:#x} {} "
+                         "-> CMP({:#x}, {:#x})\n",
+                         Rip, std::string(DisasmBuffer.data()), operands.Op1,
+                         operands.Op2);
     LafHandle16BitIntCmp(operands.Op1, operands.Op2);
     return true;
   }
