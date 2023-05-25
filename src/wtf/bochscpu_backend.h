@@ -133,6 +133,12 @@ class BochscpuBackend_t : public Backend_t {
   } Tenet_;
 
   //
+  // Enable/disable the LAF.
+  //
+
+  bool LafEnabled_ = false;
+
+  //
   // The hooks we define onto the Cpu.
   //
 
@@ -267,6 +273,122 @@ public:
   const tsl::robin_set<Gva_t> &LastNewCoverage() const override;
 
   bool RevokeLastNewCoverage() override;
+
+  //
+  // LAF/CompCov support.
+  //
+
+  enum class BochsCmpIns_t : uint32_t {
+    // 64-bit comparisons.
+    // Register <-> Immediate doubleword.
+    BX_IA_CMP_RAXId = 0x491,
+    // Effective quadword <-> Immediate byte sign-extended to quadword.
+    BX_IA_CMP_EqsIb = 0x4a3,
+    // Effective quadword <-> Immediate doubleword.
+    BX_IA_CMP_EqId = 0x49a,
+    // Register <-> Effective quadword.
+    BX_IA_CMP_GqEq = 0x47f,
+    // Effective quadword <-> Register.
+    BX_IA_CMP_EqGq = 0x488,
+
+    // 32-bit comparisons.
+    BX_IA_CMP_EAXId = 0x38,
+    BX_IA_CMP_EdsIb = 0x6a,
+    BX_IA_CMP_EdId = 0x61,
+    BX_IA_CMP_GdEd = 0x86,
+    BX_IA_CMP_EdGd = 0x1d,
+
+    // 16-bit comparisons.
+    BX_IA_CMP_AXIw = 0x2f,
+    BX_IA_CMP_EwsIb = 0x58,
+    BX_IA_CMP_EwIw = 0x4f,
+    BX_IA_CMP_GwEw = 0x7e,
+    BX_IA_CMP_EwGw = 0x14,
+  };
+
+  template <class T> struct OpPair_t {
+    T Op1;
+    T Op2;
+  };
+
+  using OpPair64_t = OpPair_t<uint64_t>;
+  using OpPair32_t = OpPair_t<uint32_t>;
+  using OpPair16_t = OpPair_t<uint16_t>;
+
+  void LafSplitCompares(bochscpu_instr_t *Ins);
+
+  bool LafTrySplitIntCmp(bochscpu_instr_t *Ins);
+
+  template <typename T> OpPair_t<T> LafCmpOperands_REGI(bochscpu_instr_t *Ins) {
+    OpPair_t<T> Res = {};
+    if constexpr (std::is_same<T, uint64_t>::value) {
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+    } else {
+      throw std::runtime_error("Invalid operand size for CMP_REGI?!");
+    }
+
+    return Res;
+  }
+
+  template <typename T> OpPair_t<T> LafCmpOperands_EsI(bochscpu_instr_t *Ins) {
+    OpPair_t<T> Res = {};
+    if constexpr (std::is_same<T, uint64_t>::value) {
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+    } else {
+      throw std::runtime_error("Invalid operand size for CMP_E?sI?!");
+    }
+
+    return Res;
+  }
+
+  template <typename T> OpPair_t<T> LafCmpOperands_EI(bochscpu_instr_t *Ins) {
+    OpPair_t<T> Res = {};
+    if constexpr (std::is_same<T, uint64_t>::value) {
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+    } else {
+      throw std::runtime_error("Invalid operand size for CMP_E?I?!");
+    }
+
+    return Res;
+  }
+
+  template <typename T> OpPair_t<T> LafCmpOperands_GE(bochscpu_instr_t *Ins) {
+    OpPair_t<T> Res = {};
+    if constexpr (std::is_same<T, uint64_t>::value) {
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+    } else {
+      throw std::runtime_error("Invalid operand size for CMP_G?E?!");
+    }
+
+    return Res;
+  }
+
+  template <typename T> OpPair_t<T> LafCmpOperands_EG(bochscpu_instr_t *Ins) {
+    OpPair_t<T> Res = {};
+    if constexpr (std::is_same<T, uint64_t>::value) {
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+    } else {
+      throw std::runtime_error("Invalid operand size for CMP_E?G?!");
+    }
+
+    return Res;
+  }
+
+  OpPair64_t LafExtract64BitOperands(bochscpu_instr_t *Ins);
+  OpPair32_t LafExtract32BitOperands(bochscpu_instr_t *Ins);
+  OpPair16_t LafExtract16BitOperands(bochscpu_instr_t *Ins);
+
+  void LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2);
+  void LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2);
+  void LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2);
+
+  bool LafTrySplitIntSub(bochscpu_instr_t *Ins);
+  bool LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins);
 
   //
   // Hooks.

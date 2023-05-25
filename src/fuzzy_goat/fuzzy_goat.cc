@@ -105,10 +105,10 @@ int main(int argc, char *argv[]) {
     __debugbreak();
   }
 
-  if (strcmp(argv[1], "compcov-laf") == 0) {
+  if (strcmp(argv[1], "bb-coverage") == 0) {
     return FuzzingCoverageFeedbackTest((const char *)Buffer.data(),
                                        Buffer.size());
-  } else if (strcmp(argv[1], "bb-coverage") == 0) {
+  } else if (strcmp(argv[1], "compcov-laf") == 0) {
     return FuzzingCompcovLafTest((const char *)Buffer.data(), Buffer.size());
   } else {
     printf("Usage: %s <test-mode> (compcov-laf, bb-coverage)\n", argv[0]);

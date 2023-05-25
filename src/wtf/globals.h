@@ -1366,6 +1366,18 @@ struct Options_t {
   bool Edges = false;
 
   //
+  // Use compare coverage (memcmp, strcmp, ...) (only with bxcpu).
+  //
+
+  bool Compcov = false;
+
+  //
+  // Use LAF split-compares (only with bxcpu).
+  //
+
+  bool Laf = false;
+
+  //
   // Options for the subcommand 'run'.
   //
 

@@ -168,6 +168,18 @@ int main(int argc, const char *argv[]) {
               EXIT_FAILURE);
         }
 
+        if (Opts.Compcov && Opts.Backend != BackendType_t::Bochscpu) {
+          throw CLI::ParseError("Compare Coverage (CompCov) is only available "
+                                "with the bxcpu backend.",
+                                EXIT_FAILURE);
+        }
+
+        if (Opts.Laf && Opts.Backend != BackendType_t::Bochscpu) {
+          throw CLI::ParseError(
+              "LAF-intel split-compares is only available with the bxcpu.",
+              EXIT_FAILURE);
+        }
+
 #ifdef LINUX
         if (!fs::exists(Opts.SymbolFilePath)) {
           throw CLI::ParseError(
@@ -259,6 +271,14 @@ int main(int argc, const char *argv[]) {
       ->default_val(false)
       ->description("Turn on edge coverage (bxcpu only).");
 
+  RunCmd->add_flag("--compcov", Opts.Compcov, "Compare coverage (CompCov)")
+      ->default_val(false)
+      ->description("Turn on compare coverage (bxcpu only).");
+
+  RunCmd->add_flag("--laf", Opts.Laf, "LAF split-compares")
+      ->default_val(false)
+      ->description("Turn on LAF split-compares coverage (bxcpu only).");
+
   RunCmd->add_option("--runs", Opts.Run.Runs, "Runs")
       ->description("Number of mutations done.")
       ->default_val(1);
@@ -337,6 +357,14 @@ int main(int argc, const char *argv[]) {
   FuzzCmd->add_flag("--edges", Opts.Edges, "Edge coverage")
       ->default_val(false)
       ->description("Turn on edge coverage (bxcpu only).");
+
+  FuzzCmd->add_flag("--compcov", Opts.Compcov, "Compare coverage (CompCov)")
+      ->default_val(false)
+      ->description("Turn on compare coverage (bxcpu only).");
+
+  FuzzCmd->add_flag("--laf", Opts.Laf, "LAF split-compares")
+      ->default_val(false)
+      ->description("Turn on LAF split-compares coverage (bxcpu only).");
 
   FuzzCmd->add_option("--name", Opts.TargetName, "Target name")
       ->description("Name of the target fuzzer.")

@@ -1,6 +1,8 @@
 // Axel '0vercl0k' Souchet - February 28 2020
 #include "bochscpu_backend.h"
 #include "blake3.h"
+#include "bochscpu.hpp"
+#include "fmt/core.h"
 #include "globals.h"
 #include "platform.h"
 #include <cstdarg>
@@ -10,6 +12,7 @@
 
 constexpr bool BochsLoggingOn = false;
 constexpr bool BochsHooksLoggingOn = false;
+constexpr bool LafCompcovLoggingOn = true;
 
 template <typename... Args_t>
 void BochsDebugPrint(const char *Format, const Args_t &...args) {
@@ -23,6 +26,14 @@ template <typename... Args_t>
 void BochsHooksDebugPrint(const char *Format, const Args_t &...args) {
   if constexpr (BochsHooksLoggingOn) {
     fmt::print("bochshooks: ");
+    fmt::print(fmt::runtime(Format), args...);
+  }
+}
+
+template <typename... Args_t>
+void LafCompcovDebugPrint(const char *Format, const Args_t &...args) {
+  if constexpr (LafCompcovLoggingOn) {
+    fmt::print("laf/compcov: ");
     fmt::print(fmt::runtime(Format), args...);
   }
 }
@@ -311,6 +322,11 @@ bool BochscpuBackend_t::Initialize(const Options_t &Opts,
     Hooks_.ucnear_branch = StaticUcNearBranchHook;
   }
 
+  // @TODO: Maybe it's better to enable laf using a second set of hooks?
+  if (Opts.Laf) {
+    LafEnabled_ = true;
+  }
+
   //
   // Initialize the hook chain with only one set of hooks.
   //
@@ -409,6 +425,180 @@ BochscpuBackend_t::Run(const uint8_t *Buffer, const uint64_t BufferSize) {
   return TestcaseResult_;
 }
 
+BochscpuBackend_t::OpPair64_t
+BochscpuBackend_t::LafExtract64BitOperands(bochscpu_instr_t *Ins) {
+  const BochsCmpIns_t Op =
+      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
+
+  OpPair64_t Operands;
+
+  switch (Op) {
+  case BochsCmpIns_t::BX_IA_CMP_RAXId:
+    Operands = LafCmpOperands_REGI<uint64_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EqsIb:
+    Operands = LafCmpOperands_EsI<uint64_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EqId:
+    Operands = LafCmpOperands_EI<uint64_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_GqEq:
+    Operands = LafCmpOperands_GE<uint64_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EqGq:
+    Operands = LafCmpOperands_EG<uint64_t>(Ins);
+    break;
+  default:
+    BochsHooksDebugPrint("Unhandled 64-bit comparison instruction.\n");
+  }
+
+  return Operands;
+}
+
+BochscpuBackend_t::OpPair32_t
+BochscpuBackend_t::LafExtract32BitOperands(bochscpu_instr_t *Ins) {
+  const BochsCmpIns_t Op =
+      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
+
+  OpPair32_t Operands;
+
+  switch (Op) {
+  case BochsCmpIns_t::BX_IA_CMP_EAXId:
+    Operands = LafCmpOperands_REGI<uint32_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EdId:
+    Operands = LafCmpOperands_EsI<uint32_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
+    Operands = LafCmpOperands_EI<uint32_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_GdEd:
+    Operands = LafCmpOperands_GE<uint32_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EdGd:
+    Operands = LafCmpOperands_EG<uint32_t>(Ins);
+    break;
+  default:
+    BochsHooksDebugPrint("Unhandled 32-bit comparison instruction.\n");
+  }
+
+  return Operands;
+}
+
+BochscpuBackend_t::OpPair16_t
+BochscpuBackend_t::LafExtract16BitOperands(bochscpu_instr_t *Ins) {
+  const BochsCmpIns_t Op =
+      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
+
+  OpPair16_t Operands;
+
+  switch (Op) {
+  case BochsCmpIns_t::BX_IA_CMP_AXIw:
+    Operands = LafCmpOperands_REGI<uint16_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EwIw:
+    Operands = LafCmpOperands_EsI<uint16_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
+    Operands = LafCmpOperands_EI<uint16_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_GwEw:
+    Operands = LafCmpOperands_GE<uint16_t>(Ins);
+    break;
+  case BochsCmpIns_t::BX_IA_CMP_EwGw:
+    Operands = LafCmpOperands_EG<uint16_t>(Ins);
+    break;
+  default:
+    BochsHooksDebugPrint("Unhandled 16-bit comparison instruction.\n");
+  }
+
+  return Operands;
+}
+
+void BochscpuBackend_t::LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2) {}
+
+void BochscpuBackend_t::LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2) {}
+
+void BochscpuBackend_t::LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2) {}
+
+bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
+  const BochsCmpIns_t Op =
+      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
+
+  const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
+
+  std::array<uint8_t, 128> InstructionBuffer;
+  VirtRead(Rip, InstructionBuffer.data(), sizeof(InstructionBuffer));
+
+  std::array<char, 256> DisasmBuffer;
+  bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
+                         DisasmBuffer.data(), DisasmStyle::Intel);
+
+  // 64-bit comparison instructions.
+  switch (Op) {
+  case BochsCmpIns_t::BX_IA_CMP_RAXId:
+  case BochsCmpIns_t::BX_IA_CMP_EqsIb:
+  case BochsCmpIns_t::BX_IA_CMP_EqId:
+  case BochsCmpIns_t::BX_IA_CMP_GqEq:
+  case BochsCmpIns_t::BX_IA_CMP_EqGq: {
+    LafCompcovDebugPrint(
+        "Extracting 64-bit operands for comparison: {:#x} {}\n", Rip,
+        std::string(DisasmBuffer.data()));
+    OpPair64_t operands = LafExtract64BitOperands(Ins);
+    LafHandle64BitIntCmp(operands.Op1, operands.Op2);
+    return true;
+  }
+  // 32-bit comparison instructions.
+  case BochsCmpIns_t::BX_IA_CMP_EAXId:
+  case BochsCmpIns_t::BX_IA_CMP_EdId:
+  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
+  case BochsCmpIns_t::BX_IA_CMP_GdEd:
+  case BochsCmpIns_t::BX_IA_CMP_EdGd: {
+    LafCompcovDebugPrint(
+        "Extracting 32-bit operands for comparison: {:#x} {}\n", Rip,
+        std::string(DisasmBuffer.data()));
+    OpPair32_t operands = LafExtract32BitOperands(Ins);
+    LafHandle32BitIntCmp(operands.Op1, operands.Op2);
+    return true;
+  }
+  // 16-bit comparison instructions.
+  case BochsCmpIns_t::BX_IA_CMP_AXIw:
+  case BochsCmpIns_t::BX_IA_CMP_EwIw:
+  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
+  case BochsCmpIns_t::BX_IA_CMP_GwEw:
+  case BochsCmpIns_t::BX_IA_CMP_EwGw: {
+    LafCompcovDebugPrint(
+        "Extracting 16-bit operands for comparison: {:#x} {}\n", Rip,
+        std::string(DisasmBuffer.data()));
+    OpPair16_t operands = LafExtract16BitOperands(Ins);
+    LafHandle16BitIntCmp(operands.Op1, operands.Op2);
+    return true;
+  }
+  }
+
+  return false;
+}
+
+bool BochscpuBackend_t::LafTrySplitIntSub(bochscpu_instr_t *Ins) {
+  // @TODO: Implement.
+  return false;
+}
+
+bool BochscpuBackend_t::LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins) {
+  // @TODO: Implement.
+  return false;
+}
+
+void BochscpuBackend_t::LafSplitCompares(bochscpu_instr_t *Ins) {
+  if (LafTrySplitIntCmp(Ins)) {
+    return;
+  } else if (LafTrySplitIntSub(Ins)) {
+    return;
+  }
+
+  return;
+}
+
 void BochscpuBackend_t::PhyAccessHook(/*void *Context, */ uint32_t,
                                       uint64_t PhysicalAddress, uintptr_t Len,
                                       uint32_t, uint32_t MemAccess) {
@@ -478,7 +668,9 @@ __declspec(safebuffers)
 #endif
     void BochscpuBackend_t::BeforeExecutionHook(
         /*void *Context, */ uint32_t, void *Ins) {
-  if (bochscpu_instr_bx_opcode(Ins) == BOCHSCPU_OPCODE_INSERTED) {
+  const uint32_t Op = bochscpu_instr_bx_opcode(Ins);
+
+  if (Op == BOCHSCPU_OPCODE_INSERTED) {
 
     //
     // We ignore the opcodes that bochs created as they aren't 'real'
@@ -501,6 +693,10 @@ __declspec(safebuffers)
   const auto &Res = AggregatedCodeCoverage_.emplace(Rip);
   if (Res.second) {
     LastNewCoverage_.emplace(Rip);
+  }
+
+  if (LafEnabled_) {
+    LafSplitCompares((bochscpu_instr_t *)Ins);
   }
 
   const bool TenetTrace = TraceType_ == TraceType_t::Tenet;

@@ -1,13 +1,14 @@
-// Axel '0vercl0k' Souchet - July 31 2021
+// Theodor Arsenij 'm4drat' - May 23 2023
+
 #include "backend.h"
-#include "targets.h"
 #include "crash_detection_umode.h"
+#include "targets.h"
 
 #include <fmt/format.h>
 
 namespace FuzzyGoat {
 
-constexpr bool LoggingOn = true;
+constexpr bool LoggingOn = false;
 
 template <typename... Args_t>
 void DebugPrint(const char *Format, const Args_t &...args) {
@@ -18,10 +19,14 @@ void DebugPrint(const char *Format, const Args_t &...args) {
 }
 
 bool InsertTestcase(const uint8_t *Buffer, const size_t BufferSize) {
+  if (BufferSize > 0x1000 || BufferSize < 32) {
+    DebugPrint("Invalid BufferSize\n");
+    return true;
+  }
+
   // Write payload
   const Gva_t BufferPtr = Gva_t(g_Backend->Rcx());
-  if (!g_Backend->VirtWriteDirty(BufferPtr, Buffer,
-                                 BufferSize)) {
+  if (!g_Backend->VirtWriteDirty(BufferPtr, Buffer, BufferSize)) {
     DebugPrint("VirtWriteDirty failed\n");
     return false;
   }
@@ -34,7 +39,7 @@ bool InsertTestcase(const uint8_t *Buffer, const size_t BufferSize) {
 
 bool Init(const Options_t &Opts, const CpuState_t &) {
   const Gva_t Rip = Gva_t(g_Backend->Rip());
-  const Gva_t AfterCall = Rip + Gva_t(6);
+  const Gva_t AfterCall = Rip + Gva_t(5);
   if (!g_Backend->SetBreakpoint(AfterCall, [](Backend_t *Backend) {
         DebugPrint("Back from call!\n");
         Backend->Stop(Ok_t());

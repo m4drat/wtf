@@ -58,6 +58,11 @@ static const uint32_t BOCHSCPU_OPCODE_ERROR = 0;
 
 static const uint32_t BOCHSCPU_OPCODE_INSERTED = 1;
 
+enum class DisasmStyle : uint32_t {
+  Intel = 0,
+  Gas = 1,
+};
+
 using bochscpu_cpu_t = void*;
 
 /// FFI Hook object
@@ -360,6 +365,18 @@ uint16_t bochscpu_instr_imm16(bochscpu_instr_t p);
 uint32_t bochscpu_instr_imm32(bochscpu_instr_t p);
 
 uint64_t bochscpu_instr_imm64(bochscpu_instr_t p);
+
+uint32_t bochscpu_instr_src(bochscpu_instr_t p);
+
+uint32_t bochscpu_instr_dst(bochscpu_instr_t p);
+
+uint32_t bochscpu_opcode_disasm(uint32_t is32,
+                                uint32_t is64,
+                                Address *cs_base,
+                                Address *ip,
+                                uint8_t *instr_bytes,
+                                const char *distbuf,
+                                DisasmStyle disasm_style);
 
 /// Add GPA mapping to HVA
 ///
