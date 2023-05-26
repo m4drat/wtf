@@ -506,11 +506,74 @@ BochscpuBackend_t::LafExtract16BitOperands(bochscpu_instr_t *Ins) {
   return Operands;
 }
 
-void BochscpuBackend_t::LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2) {}
+void BochscpuBackend_t::LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2) {
+  uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
-void BochscpuBackend_t::LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2) {}
+  auto UpdateCoverage = [this](uint64_t HashedLoc) {
+    const auto &Res = AggregatedCodeCoverage_.emplace(HashedLoc);
+    if (Res.second) {
+      LastNewCoverage_.emplace(HashedLoc);
+    }
+  };
 
-void BochscpuBackend_t::LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2) {}
+  if ((Op1 & 0xff00000000000000) == (Op2 & 0xff00000000000000)) {
+    UpdateCoverage(HashedLoc + 6);
+    if ((Op1 & 0xff000000000000) == (Op2 & 0xff000000000000)) {
+      UpdateCoverage(HashedLoc + 5);
+      if ((Op1 & 0xff0000000000) == (Op2 & 0xff0000000000)) {
+        UpdateCoverage(HashedLoc + 4);
+        if ((Op1 & 0xff00000000) == (Op2 & 0xff00000000)) {
+          UpdateCoverage(HashedLoc + 3);
+          if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
+            UpdateCoverage(HashedLoc + 2);
+            if ((Op1 & 0xff0000) == (Op2 & 0xff0000)) {
+              UpdateCoverage(HashedLoc + 1);
+              if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
+                UpdateCoverage(HashedLoc);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+void BochscpuBackend_t::LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2) {
+  uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+
+  auto UpdateCoverage = [this](uint64_t HashedLoc) {
+    const auto &Res = AggregatedCodeCoverage_.emplace(HashedLoc);
+    if (Res.second) {
+      LastNewCoverage_.emplace(HashedLoc);
+    }
+  };
+
+  if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
+    UpdateCoverage(HashedLoc + 2);
+    if ((Op1 & 0xff0000) == (Op2 & 0xff0000)) {
+      UpdateCoverage(HashedLoc + 1);
+      if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
+        UpdateCoverage(HashedLoc);
+      }
+    }
+  }
+}
+
+void BochscpuBackend_t::LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2) {
+  uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+
+  auto UpdateCoverage = [this](uint64_t HashedLoc) {
+    const auto &Res = AggregatedCodeCoverage_.emplace(HashedLoc);
+    if (Res.second) {
+      LastNewCoverage_.emplace(HashedLoc);
+    }
+  };
+
+  if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
+    UpdateCoverage(HashedLoc);
+  }
+}
 
 bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   const BochsCmpIns_t Op =
@@ -538,7 +601,7 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EqGq:
     if (std::optional<OpPair64_t> operands = LafExtract64BitOperands(Ins)) {
       LafCompcovDebugPrint(
-          "Extracting 64-bit operands for comparison: {:#18x} {:42} "
+          "Extracting 64-bit operands for comparison: {:#18x} {:46} "
           "-> {}{}({:#x}, {:#x})\n",
           Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
           operands->Op2);
@@ -547,7 +610,7 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
     }
 
     LafCompcovDebugPrint(
-        "64-bit extraction failed for comparison  : {:#18x} {:42} "
+        "64-bit extraction failed for comparison  : {:#18x} {:46} "
         "-> {}{}(XXX, XXX)\n",
         Rip, DisasmString, CmpInstrType, AddressingMode);
     return false;
@@ -559,7 +622,7 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EdGd:
     if (std::optional<OpPair32_t> operands = LafExtract32BitOperands(Ins)) {
       LafCompcovDebugPrint(
-          "Extracting 32-bit operands for comparison: {:#18x} {:42} "
+          "Extracting 32-bit operands for comparison: {:#18x} {:46} "
           "-> {}{}({:#x}, {:#x})\n",
           Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
           operands->Op2);
@@ -567,7 +630,7 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
       return true;
     }
     LafCompcovDebugPrint(
-        "32-bit extraction failed for comparison  : {:#18x} {:42} "
+        "32-bit extraction failed for comparison  : {:#18x} {:46} "
         "-> {}{}(XXX, XXX)\n",
         Rip, DisasmString, CmpInstrType, AddressingMode);
     return false;
@@ -579,7 +642,7 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EwGw:
     if (std::optional<OpPair16_t> operands = LafExtract16BitOperands(Ins)) {
       LafCompcovDebugPrint(
-          "Extracting 16-bit operands for comparison: {:#18x} {:42} "
+          "Extracting 16-bit operands for comparison: {:#18x} {:46} "
           "-> {}{}({:#x}, {:#x})\n",
           Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
           operands->Op2);
@@ -587,7 +650,7 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
       return true;
     }
     LafCompcovDebugPrint(
-        "16-bit extraction failed for comparison  : {:#18x} {:42} "
+        "16-bit extraction failed for comparison  : {:#18x} {:46} "
         "-> {}{}(XXX, XXX)\n",
         Rip, DisasmString, CmpInstrType, AddressingMode);
     return false;
@@ -651,6 +714,8 @@ void BochscpuBackend_t::LafSplitCompares(bochscpu_instr_t *Ins) {
   if (LafTrySplitIntCmp(Ins)) {
     return;
   } else if (LafTrySplitIntSub(Ins)) {
+    return;
+  } else if (LafTrySplitIntCmpXchg(Ins)) {
     return;
   }
 
@@ -953,18 +1018,12 @@ void BochscpuBackend_t::OpcodeHlt(/*void *Context, */ uint32_t) {
 void BochscpuBackend_t::RecordEdge(/*void *Context, */ uint32_t Cpu,
                                    uint64_t Rip, uint64_t NextRip) {
 
-  uint64_t Edge = Rip;
-
   //
   // splitmix64 Rip, might be overkill, a single shift is probably sufficient to
   // avoid collisions?
   //
 
-  Edge ^= Edge >> 30;
-  Edge *= 0xbf58476d1ce4e5b9U;
-  Edge ^= Edge >> 27;
-  Edge *= 0x94d049bb133111ebU;
-  Edge ^= Edge >> 31;
+  uint64_t Edge = SplitMix64(Rip);
 
   //
   // XOR with NextRip.

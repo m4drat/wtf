@@ -21,6 +21,11 @@ using span_u8 = std::span<uint8_t>;
 const size_t StringMaxSize = 120;
 
 //
+// Hashing functions.
+//
+uint64_t SplitMix64(uint64_t Val);
+
+//
 // Compare two file path by their sizes.
 //
 

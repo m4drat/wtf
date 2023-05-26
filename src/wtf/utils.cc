@@ -14,6 +14,15 @@
 
 namespace json = nlohmann;
 
+uint64_t SplitMix64(uint64_t Val) {
+  Val ^= Val >> 30;
+  Val *= 0xbf58476d1ce4e5b9U;
+  Val ^= Val >> 27;
+  Val *= 0x94d049bb133111ebU;
+  Val ^= Val >> 31;
+  return Val;
+}
+
 bool CompareTwoFileBySize(const fs::path &A, const fs::path &B) {
   return fs::file_size(A) < fs::file_size(B);
 }
