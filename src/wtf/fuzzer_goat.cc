@@ -19,7 +19,7 @@ void DebugPrint(const char *Format, const Args_t &...args) {
 }
 
 bool InsertTestcase(const uint8_t *Buffer, const size_t BufferSize) {
-  if (BufferSize > 0x1000 || BufferSize < 32) {
+  if (BufferSize > 0x1000 || BufferSize < 112) {
     DebugPrint("Invalid BufferSize\n");
     return true;
   }

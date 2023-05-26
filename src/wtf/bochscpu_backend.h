@@ -274,6 +274,8 @@ public:
 
   bool RevokeLastNewCoverage() override;
 
+  bool InsertCoverageEntry(const Gva_t Gva) override;
+
   //
   // LAF/CompCov support.
   //
@@ -353,6 +355,52 @@ public:
   using OpPair16_t = OpPair_t<uint16_t>;
 
   bool IsGpReg(uint32_t RegId) { return RegId < bochscpu_total_gpregs(); }
+
+  template <class T>
+  void LafCompcovLogComparison(bochscpu_instr_t *Ins, OpPair_t<T> Operands) {
+    if constexpr (LafCompcovLoggingOn) {
+      const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
+
+      std::array<uint8_t, 128> InstructionBuffer;
+      VirtRead(Rip, InstructionBuffer.data(), sizeof(InstructionBuffer));
+
+      std::array<char, 256> DisasmBuffer;
+      bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
+                             DisasmBuffer.data(), DisasmStyle::Intel);
+      std::string DisasmString(DisasmBuffer.data());
+      std::string_view CmpInstrType = BochsCmpInsToString(
+          static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins)));
+      std::string_view AddressingMode =
+          BochsInsAddressingModeToString(BochsInsAddressingMode(Ins));
+
+      LafCompcovDebugPrint("Extracted operands for comparison: {:#18x} {:46} "
+                           "-> {}{}({:#x}, {:#x})\n",
+                           Rip, DisasmString, CmpInstrType, AddressingMode,
+                           Operands.Op1, Operands.Op2);
+    }
+  }
+
+  void LafCompcovLogFailedComparison(bochscpu_instr_t *Ins) {
+    if constexpr (LafCompcovLoggingOn) {
+      const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
+
+      std::array<uint8_t, 128> InstructionBuffer;
+      VirtRead(Rip, InstructionBuffer.data(), sizeof(InstructionBuffer));
+
+      std::array<char, 256> DisasmBuffer;
+      bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
+                             DisasmBuffer.data(), DisasmStyle::Intel);
+      std::string DisasmString(DisasmBuffer.data());
+      std::string_view CmpInstrType = BochsCmpInsToString(
+          static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins)));
+      std::string_view AddressingMode =
+          BochsInsAddressingModeToString(BochsInsAddressingMode(Ins));
+
+      LafCompcovDebugPrint("Extraction failed for comparison : {:#18x} {:46} "
+                           "-> {}{}(XXX, XXX)\n",
+                           Rip, DisasmString, CmpInstrType, AddressingMode);
+    }
+  }
 
   void LafSplitCompares(bochscpu_instr_t *Ins);
   bool LafTrySplitIntCmp(bochscpu_instr_t *Ins);

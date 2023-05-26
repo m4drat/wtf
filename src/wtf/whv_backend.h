@@ -307,6 +307,8 @@ public:
 
   bool RevokeLastNewCoverage() override;
 
+  bool InsertCoverageEntry(const Gva_t Gva) override;
+
 private:
   HRESULT
   OnDebugTrap(const WHV_RUN_VP_EXIT_CONTEXT &Exception);

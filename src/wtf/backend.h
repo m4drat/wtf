@@ -594,6 +594,12 @@ public:
   virtual bool RevokeLastNewCoverage() = 0;
 
   //
+  // Inserts a new coverage entry.
+  //
+
+  virtual bool InsertCoverageEntry(const Gva_t Gva) = 0;
+
+  //
   // Print the registers.
   //
 

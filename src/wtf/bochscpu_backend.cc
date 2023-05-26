@@ -2,6 +2,7 @@
 #include "bochscpu_backend.h"
 #include "blake3.h"
 #include "bochscpu.hpp"
+#include "compcov.h"
 #include "fmt/core.h"
 #include "globals.h"
 #include "platform.h"
@@ -318,6 +319,13 @@ bool BochscpuBackend_t::Initialize(const Options_t &Opts,
     LafEnabled_ = true;
   }
 
+  // Enable compcov for various compare functions.
+  if (Opts.Compcov) {
+    if (!SetupCompcovHooks()) {
+      fmt::print("/!\\ Failed to setup some compcov hooks\n");
+    }
+  }
+
   //
   // Initialize the hook chain with only one set of hooks.
   //
@@ -576,21 +584,13 @@ void BochscpuBackend_t::LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2) {
 }
 
 bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
+  // Potentially, this function might be a little too aggressive in splitting
+  // instructions. The problem is that we are splitting not only comparison
+  // instructions with immediate operands, but also instructions with register,
+  // memory, and register/memory operands. This potentially might result in a
+  // lot of misleading coverage reports.
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
-
-  const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
-
-  std::array<uint8_t, 128> InstructionBuffer;
-  VirtRead(Rip, InstructionBuffer.data(), sizeof(InstructionBuffer));
-
-  std::array<char, 256> DisasmBuffer;
-  bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
-                         DisasmBuffer.data(), DisasmStyle::Intel);
-  std::string DisasmString(DisasmBuffer.data());
-  std::string_view CmpInstrType = BochsCmpInsToString(Op);
-  std::string_view AddressingMode =
-      BochsInsAddressingModeToString(BochsInsAddressingMode(Ins));
 
   // 64-bit comparison instructions.
   switch (Op) {
@@ -600,19 +600,12 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_GqEq:
   case BochsCmpIns_t::BX_IA_CMP_EqGq:
     if (std::optional<OpPair64_t> operands = LafExtract64BitOperands(Ins)) {
-      LafCompcovDebugPrint(
-          "Extracting 64-bit operands for comparison: {:#18x} {:46} "
-          "-> {}{}({:#x}, {:#x})\n",
-          Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
-          operands->Op2);
+      LafCompcovLogComparison(Ins, *operands);
       LafHandle64BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovDebugPrint(
-        "64-bit extraction failed for comparison  : {:#18x} {:46} "
-        "-> {}{}(XXX, XXX)\n",
-        Rip, DisasmString, CmpInstrType, AddressingMode);
+    LafCompcovLogFailedComparison(Ins);
     return false;
   // 32-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_EAXId:
@@ -621,18 +614,12 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_GdEd:
   case BochsCmpIns_t::BX_IA_CMP_EdGd:
     if (std::optional<OpPair32_t> operands = LafExtract32BitOperands(Ins)) {
-      LafCompcovDebugPrint(
-          "Extracting 32-bit operands for comparison: {:#18x} {:46} "
-          "-> {}{}({:#x}, {:#x})\n",
-          Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
-          operands->Op2);
+      LafCompcovLogComparison(Ins, *operands);
       LafHandle32BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
-    LafCompcovDebugPrint(
-        "32-bit extraction failed for comparison  : {:#18x} {:46} "
-        "-> {}{}(XXX, XXX)\n",
-        Rip, DisasmString, CmpInstrType, AddressingMode);
+
+    LafCompcovLogFailedComparison(Ins);
     return false;
   // 16-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_AXIw:
@@ -641,18 +628,12 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_GwEw:
   case BochsCmpIns_t::BX_IA_CMP_EwGw:
     if (std::optional<OpPair16_t> operands = LafExtract16BitOperands(Ins)) {
-      LafCompcovDebugPrint(
-          "Extracting 16-bit operands for comparison: {:#18x} {:46} "
-          "-> {}{}({:#x}, {:#x})\n",
-          Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
-          operands->Op2);
+      LafCompcovLogComparison(Ins, *operands);
       LafHandle16BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
-    LafCompcovDebugPrint(
-        "16-bit extraction failed for comparison  : {:#18x} {:46} "
-        "-> {}{}(XXX, XXX)\n",
-        Rip, DisasmString, CmpInstrType, AddressingMode);
+
+    LafCompcovLogFailedComparison(Ins);
     return false;
   }
 
@@ -1326,6 +1307,19 @@ bool BochscpuBackend_t::RevokeLastNewCoverage() {
 
   LastNewCoverage_.clear();
   return true;
+}
+
+bool BochscpuBackend_t::InsertCoverageEntry(const Gva_t Gva) {
+  //
+  // Inserting code coverage means adding it to the aggregated set.
+  //
+
+  const auto &Res = AggregatedCodeCoverage_.emplace(Gva);
+  if (Res.second) {
+    LastNewCoverage_.emplace(Gva);
+  }
+
+  return Res.second;
 }
 
 void BochscpuBackend_t::PrintRunStats() { RunStats_.Print(); }

@@ -38,7 +38,7 @@ uint32_t FuzzingCoverageFeedbackTest(const char *buffer, uint32_t size) {
 }
 
 uint32_t FuzzingCompcovLafTest(const char *buffer, uint32_t size) {
-  if (size < 32) {
+  if (size < 112) {
     return 0;
   }
 
