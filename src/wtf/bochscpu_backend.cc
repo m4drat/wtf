@@ -12,7 +12,6 @@
 
 constexpr bool BochsLoggingOn = false;
 constexpr bool BochsHooksLoggingOn = false;
-constexpr bool LafCompcovLoggingOn = true;
 
 template <typename... Args_t>
 void BochsDebugPrint(const char *Format, const Args_t &...args) {
@@ -26,14 +25,6 @@ template <typename... Args_t>
 void BochsHooksDebugPrint(const char *Format, const Args_t &...args) {
   if constexpr (BochsHooksLoggingOn) {
     fmt::print("bochshooks: ");
-    fmt::print(fmt::runtime(Format), args...);
-  }
-}
-
-template <typename... Args_t>
-void LafCompcovDebugPrint(const char *Format, const Args_t &...args) {
-  if constexpr (LafCompcovLoggingOn) {
-    fmt::print("laf/compcov: ");
     fmt::print(fmt::runtime(Format), args...);
   }
 }
@@ -425,27 +416,24 @@ BochscpuBackend_t::Run(const uint8_t *Buffer, const uint64_t BufferSize) {
   return TestcaseResult_;
 }
 
-BochscpuBackend_t::OpPair64_t
+std::optional<BochscpuBackend_t::OpPair64_t>
 BochscpuBackend_t::LafExtract64BitOperands(bochscpu_instr_t *Ins) {
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
 
-  OpPair64_t Operands;
+  std::optional<OpPair64_t> Operands{};
 
   switch (Op) {
   case BochsCmpIns_t::BX_IA_CMP_RAXId:
-    LafCompcovDebugPrint("RAXId\n");
     Operands = LafCmpOperands_REGI<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EqsIb:
     Operands = LafCmpOperands_EsI<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EqId:
-    LafCompcovDebugPrint("EqId\n");
     Operands = LafCmpOperands_EI<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_GqEq:
-    LafCompcovDebugPrint("GqEq\n");
     Operands = LafCmpOperands_GE<uint64_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EqGq:
@@ -458,27 +446,24 @@ BochscpuBackend_t::LafExtract64BitOperands(bochscpu_instr_t *Ins) {
   return Operands;
 }
 
-BochscpuBackend_t::OpPair32_t
+std::optional<BochscpuBackend_t::OpPair32_t>
 BochscpuBackend_t::LafExtract32BitOperands(bochscpu_instr_t *Ins) {
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
 
-  OpPair32_t Operands;
+  std::optional<OpPair32_t> Operands{};
 
   switch (Op) {
   case BochsCmpIns_t::BX_IA_CMP_EAXId:
-    LafCompcovDebugPrint("EAXId\n");
     Operands = LafCmpOperands_REGI<uint32_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EdsIb:
     Operands = LafCmpOperands_EsI<uint32_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EdId:
-    LafCompcovDebugPrint("EdId\n");
     Operands = LafCmpOperands_EI<uint32_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_GdEd:
-    LafCompcovDebugPrint("GdEd\n");
     Operands = LafCmpOperands_GE<uint32_t>(Ins);
     break;
   case BochsCmpIns_t::BX_IA_CMP_EdGd:
@@ -491,12 +476,12 @@ BochscpuBackend_t::LafExtract32BitOperands(bochscpu_instr_t *Ins) {
   return Operands;
 }
 
-BochscpuBackend_t::OpPair16_t
+std::optional<BochscpuBackend_t::OpPair16_t>
 BochscpuBackend_t::LafExtract16BitOperands(bochscpu_instr_t *Ins) {
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
 
-  OpPair16_t Operands;
+  std::optional<OpPair16_t> Operands{};
 
   switch (Op) {
   case BochsCmpIns_t::BX_IA_CMP_AXIw:
@@ -539,6 +524,10 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   std::array<char, 256> DisasmBuffer;
   bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
                          DisasmBuffer.data(), DisasmStyle::Intel);
+  std::string DisasmString(DisasmBuffer.data());
+  std::string_view CmpInstrType = BochsCmpInsToString(Op);
+  std::string_view AddressingMode =
+      BochsInsAddressingModeToString(BochsInsAddressingMode(Ins));
 
   // 64-bit comparison instructions.
   switch (Op) {
@@ -546,43 +535,62 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EqsIb:
   case BochsCmpIns_t::BX_IA_CMP_EqId:
   case BochsCmpIns_t::BX_IA_CMP_GqEq:
-  case BochsCmpIns_t::BX_IA_CMP_EqGq: {
-    OpPair64_t operands = LafExtract64BitOperands(Ins);
-    LafCompcovDebugPrint("Extracting 64-bit operands for comparison: {:#x} {} "
-                         "-> CMP({:#x}, {:#x})\n",
-                         Rip, std::string(DisasmBuffer.data()), operands.Op1,
-                         operands.Op2);
-    LafHandle64BitIntCmp(operands.Op1, operands.Op2);
-    return true;
-  }
+  case BochsCmpIns_t::BX_IA_CMP_EqGq:
+    if (std::optional<OpPair64_t> operands = LafExtract64BitOperands(Ins)) {
+      LafCompcovDebugPrint(
+          "Extracting 64-bit operands for comparison: {:#18x} {:42} "
+          "-> {}{}({:#x}, {:#x})\n",
+          Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
+          operands->Op2);
+      LafHandle64BitIntCmp(operands->Op1, operands->Op2);
+      return true;
+    }
+
+    LafCompcovDebugPrint(
+        "64-bit extraction failed for comparison  : {:#18x} {:42} "
+        "-> {}{}(XXX, XXX)\n",
+        Rip, DisasmString, CmpInstrType, AddressingMode);
+    return false;
   // 32-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_EAXId:
   case BochsCmpIns_t::BX_IA_CMP_EdId:
   case BochsCmpIns_t::BX_IA_CMP_EdsIb:
   case BochsCmpIns_t::BX_IA_CMP_GdEd:
-  case BochsCmpIns_t::BX_IA_CMP_EdGd: {
-    OpPair32_t operands = LafExtract32BitOperands(Ins);
-    LafCompcovDebugPrint("Extracting 32-bit operands for comparison: {:#x} {} "
-                         "-> CMP({:#x}, {:#x})\n",
-                         Rip, std::string(DisasmBuffer.data()), operands.Op1,
-                         operands.Op2);
-    LafHandle32BitIntCmp(operands.Op1, operands.Op2);
-    return true;
-  }
+  case BochsCmpIns_t::BX_IA_CMP_EdGd:
+    if (std::optional<OpPair32_t> operands = LafExtract32BitOperands(Ins)) {
+      LafCompcovDebugPrint(
+          "Extracting 32-bit operands for comparison: {:#18x} {:42} "
+          "-> {}{}({:#x}, {:#x})\n",
+          Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
+          operands->Op2);
+      LafHandle32BitIntCmp(operands->Op1, operands->Op2);
+      return true;
+    }
+    LafCompcovDebugPrint(
+        "32-bit extraction failed for comparison  : {:#18x} {:42} "
+        "-> {}{}(XXX, XXX)\n",
+        Rip, DisasmString, CmpInstrType, AddressingMode);
+    return false;
   // 16-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_AXIw:
   case BochsCmpIns_t::BX_IA_CMP_EwIw:
   case BochsCmpIns_t::BX_IA_CMP_EwsIb:
   case BochsCmpIns_t::BX_IA_CMP_GwEw:
-  case BochsCmpIns_t::BX_IA_CMP_EwGw: {
-    OpPair16_t operands = LafExtract16BitOperands(Ins);
-    LafCompcovDebugPrint("Extracting 16-bit operands for comparison: {:#x} {} "
-                         "-> CMP({:#x}, {:#x})\n",
-                         Rip, std::string(DisasmBuffer.data()), operands.Op1,
-                         operands.Op2);
-    LafHandle16BitIntCmp(operands.Op1, operands.Op2);
-    return true;
-  }
+  case BochsCmpIns_t::BX_IA_CMP_EwGw:
+    if (std::optional<OpPair16_t> operands = LafExtract16BitOperands(Ins)) {
+      LafCompcovDebugPrint(
+          "Extracting 16-bit operands for comparison: {:#18x} {:42} "
+          "-> {}{}({:#x}, {:#x})\n",
+          Rip, DisasmString, CmpInstrType, AddressingMode, operands->Op1,
+          operands->Op2);
+      LafHandle16BitIntCmp(operands->Op1, operands->Op2);
+      return true;
+    }
+    LafCompcovDebugPrint(
+        "16-bit extraction failed for comparison  : {:#18x} {:42} "
+        "-> {}{}(XXX, XXX)\n",
+        Rip, DisasmString, CmpInstrType, AddressingMode);
+    return false;
   }
 
   return false;
@@ -596,6 +604,47 @@ bool BochscpuBackend_t::LafTrySplitIntSub(bochscpu_instr_t *Ins) {
 bool BochscpuBackend_t::LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins) {
   // @TODO: Implement.
   return false;
+}
+
+std::string_view
+BochscpuBackend_t::BochsCmpInsToString(const BochsCmpIns_t Ins) {
+  switch (Ins) {
+  // 64-bit comparison instructions.
+  case BochsCmpIns_t::BX_IA_CMP_RAXId:
+    return "CMP_RAXId";
+  case BochsCmpIns_t::BX_IA_CMP_EqsIb:
+    return "CMP_EqsIb";
+  case BochsCmpIns_t::BX_IA_CMP_EqId:
+    return "CMP_EqId";
+  case BochsCmpIns_t::BX_IA_CMP_GqEq:
+    return "CMP_GqEq";
+  case BochsCmpIns_t::BX_IA_CMP_EqGq:
+    return "CMP_EqGq";
+  // 32-bit comparison instructions.
+  case BochsCmpIns_t::BX_IA_CMP_EAXId:
+    return "CMP_EAXId";
+  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
+    return "CMP_EdsIb";
+  case BochsCmpIns_t::BX_IA_CMP_EdId: // CMP_EdIdM, CMP_EdIdR
+    return "CMP_EdId";
+  case BochsCmpIns_t::BX_IA_CMP_GdEd: // CMP_GdEdM, CMP_GdEdR
+    return "CMP_GdEd";
+  case BochsCmpIns_t::BX_IA_CMP_EdGd: // CMP_EdGdM
+    return "CMP_EdGd";
+  // 16-bit comparison instructions.
+  case BochsCmpIns_t::BX_IA_CMP_AXIw:
+    return "CMP_AXIw";
+  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
+    return "CMP_EwsIb";
+  case BochsCmpIns_t::BX_IA_CMP_EwIw:
+    return "CMP_EwIw";
+  case BochsCmpIns_t::BX_IA_CMP_GwEw:
+    return "CMP_GwEw";
+  case BochsCmpIns_t::BX_IA_CMP_EwGw:
+    return "CMP_EwGw";
+  }
+
+  return "<unknown>";
 }
 
 void BochscpuBackend_t::LafSplitCompares(bochscpu_instr_t *Ins) {

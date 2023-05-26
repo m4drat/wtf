@@ -235,6 +235,8 @@ void bochscpu_cpu_delete(bochscpu_cpu_t p);
 
 void bochscpu_cpu_set_mode(bochscpu_cpu_t p);
 
+uint32_t bochscpu_total_gpregs();
+
 /// Start emulation
 ///
 /// To hook emulation, pass in a NULL terminated list of one or more pointers to
@@ -397,9 +399,13 @@ uint32_t bochscpu_instr_imm32(bochscpu_instr_t p);
 
 uint64_t bochscpu_instr_imm64(bochscpu_instr_t p);
 
-GpRegs bochscpu_instr_src(bochscpu_instr_t p);
+uint32_t bochscpu_instr_src(bochscpu_instr_t p);
 
-GpRegs bochscpu_instr_dst(bochscpu_instr_t p);
+uint32_t bochscpu_instr_dst(bochscpu_instr_t p);
+
+uint32_t bochscpu_instr_seg(bochscpu_instr_t p);
+
+uint32_t bochscpu_instr_modC0(bochscpu_instr_t p);
 
 uint64_t bochscpu_instr_resolve_addr(bochscpu_instr_t p);
 
@@ -410,6 +416,8 @@ uint32_t bochscpu_opcode_disasm(uint32_t is32,
                                 uint8_t *instr_bytes,
                                 const char *distbuf,
                                 DisasmStyle disasm_style);
+
+void bochscpu_instr_dmp();
 
 /// Add GPA mapping to HVA
 ///
