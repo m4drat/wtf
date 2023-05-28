@@ -23,6 +23,7 @@ const size_t StringMaxSize = 120;
 //
 // Hashing functions.
 //
+
 uint64_t SplitMix64(uint64_t Val);
 
 //
@@ -30,6 +31,12 @@ uint64_t SplitMix64(uint64_t Val);
 //
 
 [[nodiscard]] bool CompareTwoFileBySize(const fs::path &A, const fs::path &B);
+
+//
+// Bytes to hex string.
+//
+
+std::string BytesToHexString(const uint8_t *Bytes, uint32_t Length);
 
 //
 // Hexdump function.

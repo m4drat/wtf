@@ -518,10 +518,7 @@ void BochscpuBackend_t::LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2) {
   uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
   auto UpdateCoverage = [this](uint64_t HashedLoc) {
-    const auto &Res = AggregatedCodeCoverage_.emplace(HashedLoc);
-    if (Res.second) {
-      LastNewCoverage_.emplace(HashedLoc);
-    }
+    InsertCoverageEntry(Gva_t{HashedLoc});
   };
 
   if ((Op1 & 0xff00000000000000) == (Op2 & 0xff00000000000000)) {
@@ -551,10 +548,8 @@ void BochscpuBackend_t::LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2) {
   uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
   auto UpdateCoverage = [this](uint64_t HashedLoc) {
-    const auto &Res = AggregatedCodeCoverage_.emplace(HashedLoc);
-    if (Res.second) {
-      LastNewCoverage_.emplace(HashedLoc);
-    }
+    InsertCoverageEntry(Gva_t{HashedLoc});
+    RunStats_.LafCmplogSuccessfullHits++;
   };
 
   if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
@@ -572,10 +567,8 @@ void BochscpuBackend_t::LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2) {
   uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
   auto UpdateCoverage = [this](uint64_t HashedLoc) {
-    const auto &Res = AggregatedCodeCoverage_.emplace(HashedLoc);
-    if (Res.second) {
-      LastNewCoverage_.emplace(HashedLoc);
-    }
+    InsertCoverageEntry(Gva_t{HashedLoc});
+    RunStats_.LafCmplogSuccessfullHits++;
   };
 
   if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
@@ -600,12 +593,12 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_GqEq:
   case BochsCmpIns_t::BX_IA_CMP_EqGq:
     if (std::optional<OpPair64_t> operands = LafExtract64BitOperands(Ins)) {
-      LafCompcovLogComparison(Ins, *operands);
+      LafCompcovLogComparison(Ins, operands);
       LafHandle64BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogFailedComparison(Ins);
+    LafCompcovLogComparison<uint64_t>(Ins, {});
     return false;
   // 32-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_EAXId:
@@ -614,12 +607,12 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_GdEd:
   case BochsCmpIns_t::BX_IA_CMP_EdGd:
     if (std::optional<OpPair32_t> operands = LafExtract32BitOperands(Ins)) {
-      LafCompcovLogComparison(Ins, *operands);
+      LafCompcovLogComparison(Ins, operands);
       LafHandle32BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogFailedComparison(Ins);
+    LafCompcovLogComparison<uint32_t>(Ins, {});
     return false;
   // 16-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_AXIw:
@@ -628,12 +621,12 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_GwEw:
   case BochsCmpIns_t::BX_IA_CMP_EwGw:
     if (std::optional<OpPair16_t> operands = LafExtract16BitOperands(Ins)) {
-      LafCompcovLogComparison(Ins, *operands);
+      LafCompcovLogComparison(Ins, operands);
       LafHandle16BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogFailedComparison(Ins);
+    LafCompcovLogComparison<uint16_t>(Ins, {});
     return false;
   }
 
@@ -653,6 +646,7 @@ bool BochscpuBackend_t::LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins) {
 std::string_view
 BochscpuBackend_t::BochsCmpInsToString(const BochsCmpIns_t Ins) {
   switch (Ins) {
+
   // 64-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_RAXId:
     return "CMP_RAXId";
@@ -664,17 +658,19 @@ BochscpuBackend_t::BochsCmpInsToString(const BochsCmpIns_t Ins) {
     return "CMP_GqEq";
   case BochsCmpIns_t::BX_IA_CMP_EqGq:
     return "CMP_EqGq";
+
   // 32-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_EAXId:
     return "CMP_EAXId";
   case BochsCmpIns_t::BX_IA_CMP_EdsIb:
     return "CMP_EdsIb";
-  case BochsCmpIns_t::BX_IA_CMP_EdId: // CMP_EdIdM, CMP_EdIdR
+  case BochsCmpIns_t::BX_IA_CMP_EdId:
     return "CMP_EdId";
-  case BochsCmpIns_t::BX_IA_CMP_GdEd: // CMP_GdEdM, CMP_GdEdR
+  case BochsCmpIns_t::BX_IA_CMP_GdEd:
     return "CMP_GdEd";
-  case BochsCmpIns_t::BX_IA_CMP_EdGd: // CMP_EdGdM
+  case BochsCmpIns_t::BX_IA_CMP_EdGd:
     return "CMP_EdGd";
+
   // 16-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_AXIw:
     return "CMP_AXIw";
@@ -798,6 +794,10 @@ __declspec(safebuffers)
   if (Res.second) {
     LastNewCoverage_.emplace(Rip);
   }
+
+  //
+  // If LAF is enabled, try to split comparison instructions (cmp, sub, ...)
+  //
 
   if (LafEnabled_) {
     LafSplitCompares((bochscpu_instr_t *)Ins);

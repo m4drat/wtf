@@ -277,6 +277,63 @@ public:
   bool InsertCoverageEntry(const Gva_t Gva) override;
 
   //
+  // Hooks.
+  //
+
+  void PhyAccessHook(/*void *Context, */ uint32_t Id, uint64_t PhysicalAddress,
+                     uintptr_t Len, uint32_t MemType, uint32_t MemAccess);
+
+  void AfterExecutionHook(/*void *Context, */ uint32_t Id, void *Ins);
+
+  void BeforeExecutionHook(/*void *Context, */ uint32_t Id, void *Ins);
+
+  void LinAccessHook(/*void *Context, */ uint32_t Id, uint64_t VirtualAddress,
+                     uint64_t PhysicalAddress, uintptr_t Len, uint32_t MemType,
+                     uint32_t MemAccess);
+
+  void InterruptHook(/*void *Context, */ uint32_t Id, uint32_t Vector);
+
+  void ExceptionHook(/*void *Context, */ uint32_t Id, uint32_t Vector,
+                     uint32_t ErrorCode);
+
+  void TlbControlHook(/*void *Context, */ uint32_t Id, uint32_t What,
+                      uint64_t NewCrValue);
+
+  void OpcodeHook(/*void *Context, */ uint32_t Id, const void *Ins,
+                  const uint8_t *Opcode, uintptr_t Len, bool Is32, bool Is64);
+
+  void OpcodeHlt(/*void *Context, */ uint32_t Cpu);
+
+  void RecordEdge(/*void *Context, */ uint32_t Cpu, uint64_t Rip,
+                  uint64_t NextRip);
+
+private:
+  //
+  // Dirty every physical pages included in a virtual memory range.
+  //
+
+  void DirtyVirtualMemoryRange(const Gva_t Gva, const uint64_t Len);
+
+  //
+  // Dirty every physical pages included in a physical memory range.
+  //
+
+  void DirtyPhysicalMemoryRange(const Gpa_t Gpa, const uint64_t Len);
+
+  void LoadState(const CpuState_t &State);
+
+  Gva_t GetFirstVirtualPageToFault(const Gva_t Gva, const size_t Size);
+
+  const uint8_t *GetTestcaseBuffer();
+  uint64_t GetTestcaseSize();
+
+  //
+  // Dump the register & memory deltas for Tenet.
+  //
+
+  void DumpTenetDelta(const bool Force = false);
+
+  //
   // LAF/CompCov support.
   //
 
@@ -290,35 +347,55 @@ public:
     }
   }
 
-  enum class BochsCmpIns_t : uint32_t {
-    // 64-bit comparisons.
-    // Register <-> Immediate doubleword.
-    BX_IA_CMP_RAXId = 0x491,
-    // Effective quadword <-> Immediate byte sign-extended to quadword.
-    BX_IA_CMP_EqsIb = 0x4a3,
-    // Effective quadword <-> Immediate doubleword.
-    BX_IA_CMP_EqId = 0x49a,
-    // Register <-> Effective quadword.
-    BX_IA_CMP_GqEq = 0x47f,
-    // Effective quadword <-> Register.
-    BX_IA_CMP_EqGq = 0x488,
+  //
+  // Enum of the Bochs CMP instructions.
+  // Handling logic can be found in bochs/cpu/arith32.cpp.
+  //
 
-    // 32-bit comparisons.
+  enum class BochsCmpIns_t : uint32_t {
+    //
+    // 64-bit comparison instructions.
+    //
+    BX_IA_CMP_RAXId = 0x491,
+    BX_IA_CMP_EqsIb = 0x4a3,
+    BX_IA_CMP_EqId = 0x49a, // CMP_EqIdM, CMP_EqIdR
+    BX_IA_CMP_GqEq = 0x47f, // CMP_GqEqR, CMP_GqEqM
+    BX_IA_CMP_EqGq = 0x488, // CMP_EqGqM
+
+    //
+    // 32-bit comparison instructions.
+    //
     BX_IA_CMP_EAXId = 0x38,
     BX_IA_CMP_EdsIb = 0x6a,
     BX_IA_CMP_EdId = 0x61, // CMP_EdIdM, CMP_EdIdR
     BX_IA_CMP_GdEd = 0x86, // CMP_GdEdR, CMP_GdEdM
     BX_IA_CMP_EdGd = 0x1d, // CMP_EdGdM
 
-    // 16-bit comparisons.
+    //
+    // 16-bit comparison instructions.
+    //
     BX_IA_CMP_AXIw = 0x2f,
     BX_IA_CMP_EwsIb = 0x58,
-    BX_IA_CMP_EwIw = 0x4f,
-    BX_IA_CMP_GwEw = 0x7e,
-    BX_IA_CMP_EwGw = 0x14,
+    BX_IA_CMP_EwIw = 0x4f, // CMP_EwIwM, CMP_EwIwR
+    BX_IA_CMP_GwEw = 0x7e, // CMP_GwEwR, CMP_GwEwM
+    BX_IA_CMP_EwGw = 0x14, // CMP_EwGwM
   };
 
+  //
+  // Converts BochsCmpIns_t to a string.
+  //
+
+  std::string_view BochsCmpInsToString(const BochsCmpIns_t Ins);
+
+  //
+  // Enum of instruction addressing modes.
+  //
+
   enum class InsAddressingMode_t : uint8_t { Mem = 0, Reg = 16 };
+
+  //
+  // Get the addressing mode of a Bochs instruction.
+  //
 
   InsAddressingMode_t BochsInsAddressingMode(bochscpu_instr_t *Ins) {
     uint32_t modc0 = bochscpu_instr_modC0(Ins);
@@ -330,6 +407,10 @@ public:
 
     throw std::runtime_error("unknown addressing mode");
   }
+
+  //
+  // Convert an instruction addressing mode to a string.
+  //
 
   std::string_view
   BochsInsAddressingModeToString(const InsAddressingMode_t Mode) {
@@ -343,7 +424,9 @@ public:
     return "<unknown>";
   }
 
-  std::string_view BochsCmpInsToString(const BochsCmpIns_t Ins);
+  //
+  // Operand pair for CMP instructions.
+  //
 
   template <class T> struct OpPair_t {
     T Op1;
@@ -354,10 +437,19 @@ public:
   using OpPair32_t = OpPair_t<uint32_t>;
   using OpPair16_t = OpPair_t<uint16_t>;
 
+  //
+  // Check if a register is a general purpose register.
+  //
+
   bool IsGpReg(uint32_t RegId) { return RegId < bochscpu_total_gpregs(); }
 
+  //
+  // Log the result of a CMP instruction.
+  //
+
   template <class T>
-  void LafCompcovLogComparison(bochscpu_instr_t *Ins, OpPair_t<T> Operands) {
+  void LafCompcovLogComparison(bochscpu_instr_t *Ins,
+                               std::optional<OpPair_t<T>> Operands) {
     if constexpr (LafCompcovLoggingOn) {
       const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
 
@@ -373,37 +465,37 @@ public:
       std::string_view AddressingMode =
           BochsInsAddressingModeToString(BochsInsAddressingMode(Ins));
 
-      LafCompcovDebugPrint("Extracted operands for comparison: {:#18x} {:46} "
+      if (!Operands.has_value()) {
+        LafCompcovDebugPrint("Extraction failed for comparison : {:#18x} {:46} "
+                             "-> {}{}(XXX, XXX)\n",
+                             Rip, DisasmString, CmpInstrType, AddressingMode);
+        return;
+      }
+
+      LafCompcovDebugPrint("Extracted operands for comparison: {:#18x} "
+                           "{:46} "
                            "-> {}{}({:#x}, {:#x})\n",
                            Rip, DisasmString, CmpInstrType, AddressingMode,
                            Operands.Op1, Operands.Op2);
     }
   }
 
-  void LafCompcovLogFailedComparison(bochscpu_instr_t *Ins) {
-    if constexpr (LafCompcovLoggingOn) {
-      const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
-
-      std::array<uint8_t, 128> InstructionBuffer;
-      VirtRead(Rip, InstructionBuffer.data(), sizeof(InstructionBuffer));
-
-      std::array<char, 256> DisasmBuffer;
-      bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
-                             DisasmBuffer.data(), DisasmStyle::Intel);
-      std::string DisasmString(DisasmBuffer.data());
-      std::string_view CmpInstrType = BochsCmpInsToString(
-          static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins)));
-      std::string_view AddressingMode =
-          BochsInsAddressingModeToString(BochsInsAddressingMode(Ins));
-
-      LafCompcovDebugPrint("Extraction failed for comparison : {:#18x} {:46} "
-                           "-> {}{}(XXX, XXX)\n",
-                           Rip, DisasmString, CmpInstrType, AddressingMode);
-    }
-  }
+  //
+  // LAF entry point.
+  //
 
   void LafSplitCompares(bochscpu_instr_t *Ins);
+
+  //
+  // Tries to split an integer comparison.
+  //
+
   bool LafTrySplitIntCmp(bochscpu_instr_t *Ins);
+
+  //
+  // Processes a CMP instruction which compares an effective value (memory) with
+  // an immediate. (CMP_EqIdM, CMP_EdIdM, etc)
+  //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EIMem(bochscpu_instr_t *Ins) {
@@ -411,7 +503,7 @@ public:
     Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
 
     if constexpr (std::is_same<T, uint64_t>::value) {
-      // BX_CPU_C::CMP_EqIqM
+      // BX_CPU_C::CMP_EqIdM
       Res.Op1 = VirtRead8(Address);
       Res.Op2 = bochscpu_instr_imm64(Ins);
     } else if constexpr (std::is_same<T, uint32_t>::value) {
@@ -428,6 +520,11 @@ public:
 
     return Res;
   }
+
+  //
+  // Processes a CMP instruction which compares an effective value (register)
+  // with an immediate. (CMP_EqIdR, CMP_EdIdR, etc)
+  //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EIReg(bochscpu_instr_t *Ins) {
@@ -459,6 +556,11 @@ public:
     return Res;
   }
 
+  //
+  // Generic handler for CMP instructions which compare an effective value with
+  // immediate (sign-extended).
+  //
+
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EsI(bochscpu_instr_t *Ins) {
     const InsAddressingMode_t AddrMod = BochsInsAddressingMode(Ins);
@@ -471,6 +573,11 @@ public:
     LafCompcovDebugPrint("Invalid AddrMod for CMP_EsI\n");
     return {};
   }
+
+  //
+  // Generic handler for CMP instructions which compare an effective value with
+  // immediate.
+  //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EI(bochscpu_instr_t *Ins) {
@@ -487,16 +594,12 @@ public:
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_REGI(bochscpu_instr_t *Ins) {
-    if constexpr (std::is_same<T, uint64_t>::value) {
-      return LafCmpOperands_EIReg<uint64_t>(Ins);
-    } else if constexpr (std::is_same<T, uint32_t>::value) {
-      return LafCmpOperands_EIReg<uint32_t>(Ins);
-    } else if constexpr (std::is_same<T, uint16_t>::value) {
-      return LafCmpOperands_EIReg<uint16_t>(Ins);
-    }
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for CMP_REGI");
 
-    throw std::runtime_error("Invalid operand size for CMP_REGI");
-    return {};
+    return LafCmpOperands_EIReg<T>(Ins);
   }
 
   template <typename T>
@@ -619,61 +722,4 @@ public:
 
   bool LafTrySplitIntSub(bochscpu_instr_t *Ins);
   bool LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins);
-
-  //
-  // Hooks.
-  //
-
-  void PhyAccessHook(/*void *Context, */ uint32_t Id, uint64_t PhysicalAddress,
-                     uintptr_t Len, uint32_t MemType, uint32_t MemAccess);
-
-  void AfterExecutionHook(/*void *Context, */ uint32_t Id, void *Ins);
-
-  void BeforeExecutionHook(/*void *Context, */ uint32_t Id, void *Ins);
-
-  void LinAccessHook(/*void *Context, */ uint32_t Id, uint64_t VirtualAddress,
-                     uint64_t PhysicalAddress, uintptr_t Len, uint32_t MemType,
-                     uint32_t MemAccess);
-
-  void InterruptHook(/*void *Context, */ uint32_t Id, uint32_t Vector);
-
-  void ExceptionHook(/*void *Context, */ uint32_t Id, uint32_t Vector,
-                     uint32_t ErrorCode);
-
-  void TlbControlHook(/*void *Context, */ uint32_t Id, uint32_t What,
-                      uint64_t NewCrValue);
-
-  void OpcodeHook(/*void *Context, */ uint32_t Id, const void *Ins,
-                  const uint8_t *Opcode, uintptr_t Len, bool Is32, bool Is64);
-
-  void OpcodeHlt(/*void *Context, */ uint32_t Cpu);
-
-  void RecordEdge(/*void *Context, */ uint32_t Cpu, uint64_t Rip,
-                  uint64_t NextRip);
-
-private:
-  //
-  // Dirty every physical pages included in a virtual memory range.
-  //
-
-  void DirtyVirtualMemoryRange(const Gva_t Gva, const uint64_t Len);
-
-  //
-  // Dirty every physical pages included in a physical memory range.
-  //
-
-  void DirtyPhysicalMemoryRange(const Gpa_t Gpa, const uint64_t Len);
-
-  void LoadState(const CpuState_t &State);
-
-  Gva_t GetFirstVirtualPageToFault(const Gva_t Gva, const size_t Size);
-
-  const uint8_t *GetTestcaseBuffer();
-  uint64_t GetTestcaseSize();
-
-  //
-  // Dump the register & memory deltas for Tenet.
-  //
-
-  void DumpTenetDelta(const bool Force = false);
 };

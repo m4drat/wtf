@@ -27,6 +27,17 @@ bool CompareTwoFileBySize(const fs::path &A, const fs::path &B) {
   return fs::file_size(A) < fs::file_size(B);
 }
 
+std::string BytesToHexString(const uint8_t *Bytes, uint32_t Length) {
+  std::stringstream SS;
+  SS << std::hex;
+
+  for (uint32_t i = 0; i < Length; ++i) {
+    SS << std::setw(2) << std::setfill('0') << static_cast<uint32_t>(Bytes[i]);
+  }
+
+  return SS.str();
+}
+
 void Hexdump(const span_u8 Buffer) {
   Hexdump(0, Buffer.data(), Buffer.size_bytes());
 }

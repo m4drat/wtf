@@ -284,6 +284,7 @@ In this section I briefly mention various differences between the execution back
 
 ### bochscpu
 - ✅ Full system code-coverage (edge coverage available via `--edges`),
+- ✅ LAF/Compcov assisted coverage collection (available via `--compcov` and `--laf`),
 - ✅ Demand-paging,
 - ✅ Timeout is the number of instructions which is very precise,
 - ✅ Full execution traces are supported,

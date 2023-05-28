@@ -60,6 +60,8 @@ bool Init(const Options_t &Opts, const CpuState_t &) {
 // Register the target.
 //
 
-Target_t FuzzyGoat("fuzzy_goat", Init, InsertTestcase);
+Target_t FuzzyGoat(
+    "fuzzy_goat", Init, InsertTestcase, []() { return true; },
+    HonggfuzzMutator_t::Create);
 
 } // namespace FuzzyGoat

@@ -273,7 +273,8 @@ int main(int argc, const char *argv[]) {
 
   RunCmd->add_flag("--compcov", Opts.Compcov, "Compare coverage (CompCov)")
       ->default_val(false)
-      ->description("Turn on compare coverage (bxcpu only).");
+      ->description(
+          "Turn on compare coverage for memcmp, strcmp, ... (bxcpu only).");
 
   RunCmd->add_flag("--laf", Opts.Laf, "LAF split-compares")
       ->default_val(false)
@@ -360,7 +361,8 @@ int main(int argc, const char *argv[]) {
 
   FuzzCmd->add_flag("--compcov", Opts.Compcov, "Compare coverage (CompCov)")
       ->default_val(false)
-      ->description("Turn on compare coverage (bxcpu only).");
+      ->description(
+          "Turn on compare coverage for memcmp, strcmp, ... (bxcpu only).");
 
   FuzzCmd->add_flag("--laf", Opts.Laf, "LAF split-compares")
       ->default_val(false)
