@@ -514,10 +514,11 @@ BochscpuBackend_t::LafExtractCmp16BitOperands(bochscpu_instr_t *Ins) {
   return Operands;
 }
 
-void BochscpuBackend_t::LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2) {
-  uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+void BochscpuBackend_t::LafHandle64BitIntCmp(const uint64_t Op1,
+                                             const uint64_t Op2) {
+  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
-  auto UpdateCoverage = [this](uint64_t HashedLoc) {
+  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
     InsertCoverageEntry(Gva_t{HashedLoc});
   };
 
@@ -547,10 +548,11 @@ void BochscpuBackend_t::LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2) {
   }
 }
 
-void BochscpuBackend_t::LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2) {
-  uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+void BochscpuBackend_t::LafHandle32BitIntCmp(const uint32_t Op1,
+                                             const uint32_t Op2) {
+  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
-  auto UpdateCoverage = [this](uint64_t HashedLoc) {
+  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
     InsertCoverageEntry(Gva_t{HashedLoc});
   };
 
@@ -568,10 +570,11 @@ void BochscpuBackend_t::LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2) {
   }
 }
 
-void BochscpuBackend_t::LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2) {
-  uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+void BochscpuBackend_t::LafHandle16BitIntCmp(const uint16_t Op1,
+                                             const uint16_t Op2) {
+  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
-  auto UpdateCoverage = [this](uint64_t HashedLoc) {
+  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
     InsertCoverageEntry(Gva_t{HashedLoc});
   };
 

@@ -399,7 +399,7 @@ private:
   //
 
   InsAddressingMode_t BochsInsAddressingMode(bochscpu_instr_t *Ins) {
-    uint32_t modc0 = bochscpu_instr_modC0(Ins);
+    const uint32_t modc0 = bochscpu_instr_modC0(Ins);
     if (modc0 == 16) {
       return InsAddressingMode_t::Reg;
     } else if (modc0 == 0) {
@@ -442,7 +442,7 @@ private:
   // Check if a register is a general purpose register.
   //
 
-  bool IsGpReg(uint32_t RegId) { return RegId < bochscpu_total_gpregs(); }
+  bool IsGpReg(const uint32_t RegId) { return RegId < bochscpu_total_gpregs(); }
 
   //
   // Log the result of a CMP instruction.
@@ -450,7 +450,7 @@ private:
 
   template <class T>
   void LafCompcovLogCmpComparison(bochscpu_instr_t *Ins,
-                                  std::optional<OpPair_t<T>> Operands) {
+                                  const std::optional<OpPair_t<T>> Operands) {
     if constexpr (LafCompcovLoggingOn) {
       const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
 
@@ -526,7 +526,7 @@ private:
   // Reads a general-purpose register given its ID from the Bochs CPU.
   //
 
-  template <typename T> T LafBochsGetGpReg(GpRegs GpReg) {
+  template <typename T> T LafBochsGetGpReg(const GpRegs GpReg) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
@@ -561,7 +561,7 @@ private:
     OpPair_t<T> Res = {};
 
     // Extract the first operand (memory location).
-    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
+    const Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
     if (!VirtReadStruct(Address, &Res.Op1)) {
       return {};
     }
@@ -585,7 +585,7 @@ private:
                   "Invalid operand size for LafBochsInstrReg");
 
     OpPair_t<T> Res = {};
-    GpRegs GpReg = (GpRegs)bochscpu_instr_dst(Ins);
+    const GpRegs GpReg = (GpRegs)bochscpu_instr_dst(Ins);
 
     // Extract the first operand (effective value from register).
     Res.Op1 = LafBochsGetGpReg<T>(GpReg);
@@ -669,11 +669,11 @@ private:
     OpPair_t<T> Res = {};
 
     // Extract the first operand (general purpose register).
-    GpRegs GpReg = (GpRegs)bochscpu_instr_dst(Ins);
+    const GpRegs GpReg = (GpRegs)bochscpu_instr_dst(Ins);
     Res.Op1 = LafBochsGetGpReg<T>(GpReg);
 
     // Extract the second operand from memory.
-    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
+    const Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
     if (!VirtReadStruct(Address, &Res.Op2)) {
       return {};
     }
@@ -695,8 +695,8 @@ private:
                   "Invalid operand size for LafBochsInstrReg");
 
     OpPair_t<T> Res = {};
-    GpRegs GpReg1 = (GpRegs)bochscpu_instr_dst(Ins);
-    GpRegs GpReg2 = (GpRegs)bochscpu_instr_src(Ins);
+    const GpRegs GpReg1 = (GpRegs)bochscpu_instr_dst(Ins);
+    const GpRegs GpReg2 = (GpRegs)bochscpu_instr_src(Ins);
 
     // Extract the first operand (general purpose register).
     Res.Op1 = LafBochsGetGpReg<T>(GpReg1);
@@ -743,13 +743,13 @@ private:
     OpPair_t<T> Res = {};
 
     // Extract the first operand - effective value from memory.
-    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
+    const Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
     if (!VirtReadStruct(Address, &Res.Op1)) {
       return {};
     }
 
     // Extract the second operand - general purpose register.
-    GpRegs GpReg = (GpRegs)bochscpu_instr_src(Ins);
+    const GpRegs GpReg = (GpRegs)bochscpu_instr_src(Ins);
     Res.Op2 = LafBochsGetGpReg<T>(GpReg);
 
     return Res;
@@ -767,9 +767,9 @@ private:
   // LAF handlers for CMP instructions.
   //
 
-  void LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2);
-  void LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2);
-  void LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2);
+  void LafHandle64BitIntCmp(const uint64_t Op1, const uint64_t Op2);
+  void LafHandle32BitIntCmp(const uint32_t Op1, const uint32_t Op2);
+  void LafHandle16BitIntCmp(const uint16_t Op1, const uint16_t Op2);
 
   bool LafTrySplitIntSub(bochscpu_instr_t *Ins);
   bool LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins);
