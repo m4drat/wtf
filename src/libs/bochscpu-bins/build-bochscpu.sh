@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Axel '0vercl0k' Souchet - May 2 2020
 # Build / configure bxcpu-ffi
 pushd .
@@ -5,9 +7,9 @@ pushd .
 mkdir bxbuild-lin
 cd bxbuild-lin
 
-git clone https://github.com/yrp604/bochscpu-build.git
-git clone https://github.com/yrp604/bochscpu
-git clone https://github.com/yrp604/bochscpu-ffi
+git clone https://github.com/m4drat/bochscpu-build.git
+git clone https://github.com/m4drat/bochscpu
+git clone https://github.com/m4drat/bochscpu-ffi
 
 cd bochscpu-build
 bash prep.sh && cd Bochs/bochs && sh .conf.cpu && make || true
@@ -34,6 +36,9 @@ cd ../../bochscpu-ffi
 cargo clean
 cargo build
 cargo build --release
+
+cp bochscpu.hpp ../../include/bochscpu.hpp
+cp target/release/libbochscpu_ffi.a ../../lib/libbochscpu_ffi.a
 
 # Get back to where we were.
 popd

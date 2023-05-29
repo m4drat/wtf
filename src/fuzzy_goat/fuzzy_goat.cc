@@ -2,14 +2,12 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 
-#include <Windows.h>
 #include <array>
 #include <cstdio>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <vcruntime_string.h>
 
 uint32_t FuzzingCoverageFeedbackTest(const char *buffer, uint32_t size) {
   if (size < 10) {

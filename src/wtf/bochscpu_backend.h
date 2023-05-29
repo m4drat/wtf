@@ -338,7 +338,7 @@ private:
   // LAF/CompCov support.
   //
 
-  static constexpr bool LafCompcovLoggingOn = true;
+  static constexpr bool LafCompcovLoggingOn = false;
 
   template <typename... Args_t>
   void LafCompcovDebugPrint(const char *Format, const Args_t &...args) {

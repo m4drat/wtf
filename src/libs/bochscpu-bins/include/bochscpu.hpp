@@ -417,8 +417,6 @@ uint32_t bochscpu_opcode_disasm(uint32_t is32,
                                 const char *distbuf,
                                 DisasmStyle disasm_style);
 
-void bochscpu_instr_dmp();
-
 /// Add GPA mapping to HVA
 ///
 /// If the GPA was already mapped, this replaces the existing mapping

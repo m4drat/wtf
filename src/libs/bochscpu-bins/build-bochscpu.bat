@@ -5,24 +5,16 @@ REM set _LINK_=/DEBUG:FULL
 
 pushd .
 
-rmdir /s /q bxbuild-win\bochscpu
-rmdir /s /q bxbuild-win\bochscpu-ffi
-
+mkdir bxbuild-win
 cd bxbuild-win
 
 REM Use WSL to configure / clone the repositories.
-@REM bash -c "git clone https://github.com/m4drat/bochscpu-build.git && git clone https://github.com/m4drat/bochscpu && git clone https://github.com/m4drat/bochscpu-ffi && cd bochscpu-build && bash prep.sh && cd Bochs/bochs && bash .conf.cpu-msvc"
-
-@REM robocopy ..\..\..\..\..\bochscpu-build bochscpu-build /e
-robocopy ..\..\..\..\..\bochscpu bochscpu /e
-robocopy ..\..\..\..\..\bochscpu-ffi bochscpu-ffi /e
-
-@REM rmdir /s /q .\bochscpu-build\Bochs
+bash -c "git clone https://github.com/m4drat/bochscpu-build.git && git clone https://github.com/m4drat/bochscpu && git clone https://github.com/m4drat/bochscpu-ffi && cd bochscpu-build && bash prep.sh && cd Bochs/bochs && bash .conf.cpu-msvc"
 
 REM Build bochs; libinstrument.a is expected to fail to build so don't freak out.
 REM You can run nmake all-clean to clean up the build.
 cd bochscpu-build\Bochs\bochs
-@REM nmake
+nmake
 
 REM Remove old files in bochscpu.
 rmdir /s /q ..\..\..\bochscpu\bochs
