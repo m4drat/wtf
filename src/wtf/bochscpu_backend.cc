@@ -424,96 +424,6 @@ BochscpuBackend_t::Run(const uint8_t *Buffer, const uint64_t BufferSize) {
   return TestcaseResult_;
 }
 
-std::optional<BochscpuBackend_t::OpPair64_t>
-BochscpuBackend_t::LafExtractCmp64BitOperands(bochscpu_instr_t *Ins) {
-  const BochsCmpIns_t Op =
-      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
-
-  std::optional<OpPair64_t> Operands{};
-
-  switch (Op) {
-  case BochsCmpIns_t::BX_IA_CMP_RAXId:
-    Operands = LafCmpOperands_REGI<uint64_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EqsIb:
-    Operands = LafCmpOperands_EsI<uint64_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EqId:
-    Operands = LafCmpOperands_EI<uint64_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_GqEq:
-    Operands = LafCmpOperands_GE<uint64_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EqGq:
-    Operands = LafCmpOperands_EG<uint64_t>(Ins);
-    break;
-  default:
-    BochsHooksDebugPrint("Unhandled 64-bit comparison instruction.\n");
-  }
-
-  return Operands;
-}
-
-std::optional<BochscpuBackend_t::OpPair32_t>
-BochscpuBackend_t::LafExtractCmp32BitOperands(bochscpu_instr_t *Ins) {
-  const BochsCmpIns_t Op =
-      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
-
-  std::optional<OpPair32_t> Operands{};
-
-  switch (Op) {
-  case BochsCmpIns_t::BX_IA_CMP_EAXId:
-    Operands = LafCmpOperands_REGI<uint32_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
-    Operands = LafCmpOperands_EsI<uint32_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EdId:
-    Operands = LafCmpOperands_EI<uint32_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_GdEd:
-    Operands = LafCmpOperands_GE<uint32_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EdGd:
-    Operands = LafCmpOperands_EG<uint32_t>(Ins);
-    break;
-  default:
-    BochsHooksDebugPrint("Unhandled 32-bit comparison instruction.\n");
-  }
-
-  return Operands;
-}
-
-std::optional<BochscpuBackend_t::OpPair16_t>
-BochscpuBackend_t::LafExtractCmp16BitOperands(bochscpu_instr_t *Ins) {
-  const BochsCmpIns_t Op =
-      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
-
-  std::optional<OpPair16_t> Operands{};
-
-  switch (Op) {
-  case BochsCmpIns_t::BX_IA_CMP_AXIw:
-    Operands = LafCmpOperands_REGI<uint16_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
-    Operands = LafCmpOperands_EsI<uint16_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EwIw:
-    Operands = LafCmpOperands_EI<uint16_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_GwEw:
-    Operands = LafCmpOperands_GE<uint16_t>(Ins);
-    break;
-  case BochsCmpIns_t::BX_IA_CMP_EwGw:
-    Operands = LafCmpOperands_EG<uint16_t>(Ins);
-    break;
-  default:
-    BochsHooksDebugPrint("Unhandled 16-bit comparison instruction.\n");
-  }
-
-  return Operands;
-}
-
 void BochscpuBackend_t::LafHandle64BitIntCmp(const uint64_t Op1,
                                              const uint64_t Op2) {
   const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
@@ -586,138 +496,187 @@ void BochscpuBackend_t::LafHandle16BitIntCmp(const uint16_t Op1,
   }
 }
 
-bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
+bool BochscpuBackend_t::LafTrySplitIntCmpSub(bochscpu_instr_t *Ins) {
   // Potentially, this function might be a little too aggressive in splitting
-  // instructions. The problem is that we are splitting not only comparison
-  // instructions with immediate operands, but also instructions with register,
-  // memory, and register/memory operands. This potentially might produce some
-  // misleading coverage entries.
-  const BochsCmpIns_t Op =
-      static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
+  // instructions. The problem is that we are splitting not only
+  // comparison/substraction instructions with immediate operands, but also
+  // instructions with register, memory, and register/memory operands. This
+  // potentially might produce some misleading coverage entries.
+  const BochsIns_t Op = static_cast<BochsIns_t>(bochscpu_instr_bx_opcode(Ins));
 
-  // 64-bit comparison instructions.
   switch (Op) {
-  case BochsCmpIns_t::BX_IA_CMP_RAXId:
-  case BochsCmpIns_t::BX_IA_CMP_EqsIb:
-  case BochsCmpIns_t::BX_IA_CMP_EqId:
-  case BochsCmpIns_t::BX_IA_CMP_GqEq:
-  case BochsCmpIns_t::BX_IA_CMP_EqGq:
-    if (std::optional<OpPair64_t> operands = LafExtractCmp64BitOperands(Ins)) {
-      LafCompcovLogCmpComparison(Ins, operands);
+  // Handle 64-bit CMP instructions.
+  case BochsIns_t::BX_IA_CMP_RAXId:
+  case BochsIns_t::BX_IA_CMP_EqsIb:
+  case BochsIns_t::BX_IA_CMP_EqId:
+  case BochsIns_t::BX_IA_CMP_GqEq:
+  case BochsIns_t::BX_IA_CMP_EqGq:
+  // Handle 64-bit SUB instructions.
+  case BochsIns_t::BX_IA_SUB_RAXId:
+  case BochsIns_t::BX_IA_SUB_EqsIb:
+  case BochsIns_t::BX_IA_SUB_EqId:
+  case BochsIns_t::BX_IA_SUB_GqEq:
+  case BochsIns_t::BX_IA_SUB_EqGq:
+    if (std::optional<OpPair64_t> operands = LafExtract64BitOperands(Ins)) {
+      LafCompcovLogInstruction(Ins, operands);
       LafHandle64BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogCmpComparison<uint64_t>(Ins, {});
+    LafCompcovLogInstruction<uint64_t>(Ins, {});
     return false;
-  // 32-bit comparison instructions.
-  case BochsCmpIns_t::BX_IA_CMP_EAXId:
-  case BochsCmpIns_t::BX_IA_CMP_EdId:
-  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
-  case BochsCmpIns_t::BX_IA_CMP_GdEd:
-  case BochsCmpIns_t::BX_IA_CMP_EdGd:
-    if (std::optional<OpPair32_t> operands = LafExtractCmp32BitOperands(Ins)) {
-      LafCompcovLogCmpComparison(Ins, operands);
+  // Handle 32-bit CMP instructions.
+  case BochsIns_t::BX_IA_CMP_EAXId:
+  case BochsIns_t::BX_IA_CMP_EdId:
+  case BochsIns_t::BX_IA_CMP_EdsIb:
+  case BochsIns_t::BX_IA_CMP_GdEd:
+  case BochsIns_t::BX_IA_CMP_EdGd:
+  // Handle 32-bit SUB instructions.
+  case BochsIns_t::BX_IA_SUB_EAXId:
+  case BochsIns_t::BX_IA_SUB_EdsIb:
+  case BochsIns_t::BX_IA_SUB_EdId:
+  case BochsIns_t::BX_IA_SUB_GdEd:
+  case BochsIns_t::BX_IA_SUB_EdGd:
+    if (std::optional<OpPair32_t> operands = LafExtract32BitOperands(Ins)) {
+      LafCompcovLogInstruction(Ins, operands);
       LafHandle32BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogCmpComparison<uint32_t>(Ins, {});
+    LafCompcovLogInstruction<uint32_t>(Ins, {});
     return false;
-  // 16-bit comparison instructions.
-  case BochsCmpIns_t::BX_IA_CMP_AXIw:
-  case BochsCmpIns_t::BX_IA_CMP_EwIw:
-  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
-  case BochsCmpIns_t::BX_IA_CMP_GwEw:
-  case BochsCmpIns_t::BX_IA_CMP_EwGw:
-    if (std::optional<OpPair16_t> operands = LafExtractCmp16BitOperands(Ins)) {
-      LafCompcovLogCmpComparison(Ins, operands);
+  // Handle 16-bit CMP instructions.
+  case BochsIns_t::BX_IA_CMP_AXIw:
+  case BochsIns_t::BX_IA_CMP_EwIw:
+  case BochsIns_t::BX_IA_CMP_EwsIb:
+  case BochsIns_t::BX_IA_CMP_GwEw:
+  case BochsIns_t::BX_IA_CMP_EwGw:
+  // Handle 16-bit SUB instructions.
+  case BochsIns_t::BX_IA_SUB_AXIw:
+  case BochsIns_t::BX_IA_SUB_EwsIb:
+  case BochsIns_t::BX_IA_SUB_EwIw:
+  case BochsIns_t::BX_IA_SUB_GwEw:
+  case BochsIns_t::BX_IA_SUB_EwGw:
+    if (std::optional<OpPair16_t> operands = LafExtract16BitOperands(Ins)) {
+      LafCompcovLogInstruction(Ins, operands);
       LafHandle16BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogCmpComparison<uint16_t>(Ins, {});
+    LafCompcovLogInstruction<uint16_t>(Ins, {});
     return false;
   }
 
   return false;
 }
 
-bool BochscpuBackend_t::LafTrySplitIntSub(bochscpu_instr_t *Ins) {
-  // @TODO: Implement.
-  return false;
-}
+std::optional<BochscpuBackend_t::OpPair64_t>
+BochscpuBackend_t::LafExtract64BitOperands(bochscpu_instr_t *Ins) {
+  const BochsIns_t Op = static_cast<BochsIns_t>(bochscpu_instr_bx_opcode(Ins));
 
-bool BochscpuBackend_t::LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins) {
-  // @TODO: Implement.
-  return false;
-}
+  std::optional<OpPair64_t> Operands{};
 
-std::string_view
-BochscpuBackend_t::BochsCmpInsToString(const BochsCmpIns_t Ins) {
-  switch (Ins) {
-
-  // 64-bit comparison instructions.
-  case BochsCmpIns_t::BX_IA_CMP_RAXId:
-    return "CMP_RAXId";
-  case BochsCmpIns_t::BX_IA_CMP_EqsIb:
-    return "CMP_EqsIb";
-  case BochsCmpIns_t::BX_IA_CMP_EqId:
-    return "CMP_EqId";
-  case BochsCmpIns_t::BX_IA_CMP_GqEq:
-    return "CMP_GqEq";
-  case BochsCmpIns_t::BX_IA_CMP_EqGq:
-    return "CMP_EqGq";
-
-  // 32-bit comparison instructions.
-  case BochsCmpIns_t::BX_IA_CMP_EAXId:
-    return "CMP_EAXId";
-  case BochsCmpIns_t::BX_IA_CMP_EdsIb:
-    return "CMP_EdsIb";
-  case BochsCmpIns_t::BX_IA_CMP_EdId:
-    return "CMP_EdId";
-  case BochsCmpIns_t::BX_IA_CMP_GdEd:
-    return "CMP_GdEd";
-  case BochsCmpIns_t::BX_IA_CMP_EdGd:
-    return "CMP_EdGd";
-
-  // 16-bit comparison instructions.
-  case BochsCmpIns_t::BX_IA_CMP_AXIw:
-    return "CMP_AXIw";
-  case BochsCmpIns_t::BX_IA_CMP_EwsIb:
-    return "CMP_EwsIb";
-  case BochsCmpIns_t::BX_IA_CMP_EwIw:
-    return "CMP_EwIw";
-  case BochsCmpIns_t::BX_IA_CMP_GwEw:
-    return "CMP_GwEw";
-  case BochsCmpIns_t::BX_IA_CMP_EwGw:
-    return "CMP_EwGw";
+  switch (Op) {
+  case BochsIns_t::BX_IA_CMP_RAXId:
+  case BochsIns_t::BX_IA_SUB_RAXId:
+    Operands = LafExtractOperands_REGI<uint64_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EqsIb:
+  case BochsIns_t::BX_IA_SUB_EqsIb:
+    Operands = LafExtractOperands_EsI<uint64_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EqId:
+  case BochsIns_t::BX_IA_SUB_EqId:
+    Operands = LafExtractOperands_EI<uint64_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_GqEq:
+  case BochsIns_t::BX_IA_SUB_GqEq:
+    Operands = LafExtractOperands_GE<uint64_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EqGq:
+  case BochsIns_t::BX_IA_SUB_EqGq:
+    Operands = LafExtractOperands_EG<uint64_t>(Ins);
+    break;
+  default:
+    BochsHooksDebugPrint("Unhandled 64-bit CMP/SUB instruction.\n");
   }
 
-  return "<unknown>";
+  return Operands;
+}
+
+std::optional<BochscpuBackend_t::OpPair32_t>
+BochscpuBackend_t::LafExtract32BitOperands(bochscpu_instr_t *Ins) {
+  const BochsIns_t Op = static_cast<BochsIns_t>(bochscpu_instr_bx_opcode(Ins));
+
+  std::optional<OpPair32_t> Operands{};
+
+  switch (Op) {
+  case BochsIns_t::BX_IA_CMP_EAXId:
+  case BochsIns_t::BX_IA_SUB_EAXId:
+    Operands = LafExtractOperands_REGI<uint32_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EdsIb:
+  case BochsIns_t::BX_IA_SUB_EdsIb:
+    Operands = LafExtractOperands_EsI<uint32_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EdId:
+  case BochsIns_t::BX_IA_SUB_EdId:
+    Operands = LafExtractOperands_EI<uint32_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_GdEd:
+  case BochsIns_t::BX_IA_SUB_GdEd:
+    Operands = LafExtractOperands_GE<uint32_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EdGd:
+  case BochsIns_t::BX_IA_SUB_EdGd:
+    Operands = LafExtractOperands_EG<uint32_t>(Ins);
+    break;
+  default:
+    BochsHooksDebugPrint("Unhandled 32-bit CMP/SUB instruction.\n");
+  }
+
+  return Operands;
+}
+
+std::optional<BochscpuBackend_t::OpPair16_t>
+BochscpuBackend_t::LafExtract16BitOperands(bochscpu_instr_t *Ins) {
+  const BochsIns_t Op = static_cast<BochsIns_t>(bochscpu_instr_bx_opcode(Ins));
+
+  std::optional<OpPair16_t> Operands{};
+
+  switch (Op) {
+  case BochsIns_t::BX_IA_CMP_AXIw:
+  case BochsIns_t::BX_IA_SUB_AXIw:
+    Operands = LafExtractOperands_REGI<uint16_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EwsIb:
+  case BochsIns_t::BX_IA_SUB_EwsIb:
+    Operands = LafExtractOperands_EsI<uint16_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EwIw:
+  case BochsIns_t::BX_IA_SUB_EwIw:
+    Operands = LafExtractOperands_EI<uint16_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_GwEw:
+  case BochsIns_t::BX_IA_SUB_GwEw:
+    Operands = LafExtractOperands_GE<uint16_t>(Ins);
+    break;
+  case BochsIns_t::BX_IA_CMP_EwGw:
+  case BochsIns_t::BX_IA_SUB_EwGw:
+    Operands = LafExtractOperands_EG<uint16_t>(Ins);
+    break;
+  default:
+    BochsHooksDebugPrint("Unhandled 16-bit CMP/SUB instruction.\n");
+  }
+
+  return Operands;
 }
 
 void BochscpuBackend_t::LafSplitCompares(bochscpu_instr_t *Ins) {
-
   //
-  // First try to split a given instruction, assuming it is a CMP instruction.
+  // Try to split a given instruction, assuming it is a CMP/SUB instruction.
   //
-
-  if (LafTrySplitIntCmp(Ins)) {
-    return;
-
-    //
-    // If that didn't work, try to split a SUB instruction.
-    //
-  } else if (LafTrySplitIntSub(Ins)) {
-    return;
-
-    //
-    // Finally, if that didn't work, try to split a CMPXCHG instruction.
-    //
-  } else if (LafTrySplitIntCmpXchg(Ins)) {
-    return;
-  }
+  LafTrySplitIntCmpSub(Ins);
 
   return;
 }
@@ -844,16 +803,16 @@ __declspec(safebuffers)
       if (Tenet_.PastFirstInstruction_) {
 
         //
-        // If we already executed an instruction, dump register + mem changes if
-        // generating Tenet traces.
+        // If we already executed an instruction, dump register + mem changes
+        // if generating Tenet traces.
         //
 
         DumpTenetDelta();
       }
 
       //
-      // Save a complete copy of the registers so that we can diff them against
-      // the next step when taking Tenet traces.
+      // Save a complete copy of the registers so that we can diff them
+      // against the next step when taking Tenet traces.
       //
 
       bochscpu_cpu_state(Cpu_, &Tenet_.CpuStatePrev_);
@@ -870,10 +829,9 @@ __declspec(safebuffers)
   }
 }
 
-void BochscpuBackend_t::LinAccessHook(/*void *Context, */ uint32_t,
-                                      uint64_t VirtualAddress,
-                                      uint64_t PhysicalAddress, uintptr_t Len,
-                                      uint32_t, uint32_t MemAccess) {
+void BochscpuBackend_t::LinAccessHook(
+    /*void *Context, */ uint32_t, uint64_t VirtualAddress,
+    uint64_t PhysicalAddress, uintptr_t Len, uint32_t, uint32_t MemAccess) {
 
   //
   // Virtual memory is getting accessed! Exciting.
@@ -1023,8 +981,8 @@ void BochscpuBackend_t::RecordEdge(/*void *Context, */ uint32_t Cpu,
                                    uint64_t Rip, uint64_t NextRip) {
 
   //
-  // splitmix64 Rip, might be overkill, a single shift is probably sufficient to
-  // avoid collisions?
+  // splitmix64 Rip, might be overkill, a single shift is probably sufficient
+  // to avoid collisions?
   //
 
   uint64_t Edge = SplitMix64(Rip);
@@ -1236,56 +1194,56 @@ bool BochscpuBackend_t::PageFaultsMemoryIfNeeded(const Gva_t Gva,
 
   //
   // The problem this function is solving is the following. Imagine that the
-  // guest allocates memory, at which points the kernel sets-up the appropriate
-  // page tables hierarchy but sets the leaf PTEs as non-present. As usual, the
-  // memory management is lazy and you have to access the actual pages for the
-  // page to be valid. This is actually documented in 'VirtualAlloc'
-  // documentation for example:
-  // "Actual physical pages are not allocated unless/until the virtual addresses
-  // are actually accessed."
+  // guest allocates memory, at which points the kernel sets-up the
+  // appropriate page tables hierarchy but sets the leaf PTEs as non-present.
+  // As usual, the memory management is lazy and you have to access the actual
+  // pages for the page to be valid. This is actually documented in
+  // 'VirtualAlloc' documentation for example: "Actual physical pages are not
+  // allocated unless/until the virtual addresses are actually accessed."
   //
   // So ok. Now, the other piece of the puzzle is that we emulate / instrument
   // the guest systems in various ways. One of the thing we do a lot in
   // basically writing to the guest memory ourselves; it means it parses the
   // page tables and finds the backing page which we write to. This is a great
-  // tool but if you consider the above case, then the leaf PTE structure might
-  // not be present in which case you can't service the write.
-  // The idea to solve this is to perform a memory translation of a virtual
-  // memory range and check which pages are not translatable. When we encounter
-  // one of those, we insert a #PF fault to have the kernel fix the PTE.
-  // That's the idea.
+  // tool but if you consider the above case, then the leaf PTE structure
+  // might not be present in which case you can't service the write. The idea
+  // to solve this is to perform a memory translation of a virtual memory
+  // range and check which pages are not translatable. When we encounter one
+  // of those, we insert a #PF fault to have the kernel fix the PTE. That's
+  // the idea.
   //
   // Cool - let's put things in perspective now. When one of our breakpoint
-  // trigger, in bochs land we are in the `before_exec` hook. It means bochs is
-  // in the process of executing an instruction. It is safe to inject any number
-  // of page faults here because this could happen without us doing it; imagine
-  // a `mov rax, [rcx]` instruction and the memory pointed by @rcx hasn't been
-  // paged in yet. Well, it'll trigger a page fault, the kernel fixes the PTE
-  // and bochs retries to re-executes the instruction. In the above example,
-  // there's probably not going to be another #PF possible, but you could
-  // imagine instructions where several ones could happen like a 'movsb' for
-  // example where both the source and the destination are not paged in. So
-  // anyways, this is good for us.
+  // trigger, in bochs land we are in the `before_exec` hook. It means bochs
+  // is in the process of executing an instruction. It is safe to inject any
+  // number of page faults here because this could happen without us doing it;
+  // imagine a `mov rax, [rcx]` instruction and the memory pointed by @rcx
+  // hasn't been paged in yet. Well, it'll trigger a page fault, the kernel
+  // fixes the PTE and bochs retries to re-executes the instruction. In the
+  // above example, there's probably not going to be another #PF possible, but
+  // you could imagine instructions where several ones could happen like a
+  // 'movsb' for example where both the source and the destination are not
+  // paged in. So anyways, this is good for us.
   //
   // Now the way the API works is that `bochscpu_cpu_set_exception` sets an
-  // internal flag that gets read once we return from the hooks; then the guest
-  // services the page fault and will try to re-execute the instruction from the
-  // beginning. This means, our breakpoint triggers again but this time
-  // hopefully the memory is paged in and we don't need to do anything.
+  // internal flag that gets read once we return from the hooks; then the
+  // guest services the page fault and will try to re-execute the instruction
+  // from the beginning. This means, our breakpoint triggers again but this
+  // time hopefully the memory is paged in and we don't need to do anything.
   //
-  // The way we achieve that is by trying to translate every GVA into a GPA, if
-  // we can translate every pages in a range, then we bail because we have no
-  // job to do. If the translation fails, `bochscpu_mem_virt_translate` returns
-  // `0xffffffffffffffff` which is the signal we need to do some work. When we
-  // see that, we know that we have a physical page of memory to page in. So we
-  // set-up cr3 with the GVA that needs paging in, and dispatches the exception.
+  // The way we achieve that is by trying to translate every GVA into a GPA,
+  // if we can translate every pages in a range, then we bail because we have
+  // no job to do. If the translation fails, `bochscpu_mem_virt_translate`
+  // returns `0xffffffffffffffff` which is the signal we need to do some work.
+  // When we see that, we know that we have a physical page of memory to page
+  // in. So we set-up cr3 with the GVA that needs paging in, and dispatches
+  // the exception.
   //
   // If you are wondering what happens if we have an entire range of memory to
   // page in, well after bochs does its work, the breakpoint triggers again at
-  // which point we are going to be invoked to inspect the memory range and will
-  // notice that the first page is now paged in, so we'll translate the second
-  // one and notices now this one needs paging in. So we'll re-do the same
-  // dance until the whole range is paged in at which point.
+  // which point we are going to be invoked to inspect the memory range and
+  // will notice that the first page is now paged in, so we'll translate the
+  // second one and notices now this one needs paging in. So we'll re-do the
+  // same dance until the whole range is paged in at which point.
   //
 
   const Gva_t PageToFault = GetFirstVirtualPageToFault(Gva, Size);

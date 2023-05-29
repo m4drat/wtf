@@ -46,10 +46,6 @@ void CompcovTrace(const uint64_t RetLoc, const T *Buffer1, const T *Buffer2,
   uint64_t HashedLoc = SplitMix64(RetLoc);
   for (uint32_t i = 0; i < Length && Buffer1[i] == Buffer2[i]; i++) {
     g_Backend->InsertCoverageEntry(Gva_t(HashedLoc + i));
-    // if (Buffer1[i] == Buffer2[i]) {
-    //   g_Backend->InsertCoverageEntry(Gva_t(HashedLoc + i + SuccessfulCmp));
-    //   SuccessfulCmp++;
-    // }
   }
 }
 
@@ -272,6 +268,8 @@ bool SetupCompcovHooks() {
     // (e.g. a breakpoint is already set on the function).
     // Probably, the best way to handle this is to replace already set
     // breakpoint with our own, but call the original BP-handler from it.
+    // Anyways, for now it's not a problem, as we're using Bochs, which uses
+    // edge/non-bp coverage.
     if (!g_Backend->SetBreakpoint(function.data(), [](Backend_t *Backend) {
           CompcovPrint("hooking strcmp\n");
           CompcovHookStrcmp(Backend);

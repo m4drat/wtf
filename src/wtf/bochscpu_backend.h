@@ -338,7 +338,7 @@ private:
   // LAF/CompCov support.
   //
 
-  static constexpr bool LafCompcovLoggingOn = false;
+  static constexpr bool LafCompcovLoggingOn = true;
 
   template <typename... Args_t>
   void LafCompcovDebugPrint(const char *Format, const Args_t &...args) {
@@ -349,18 +349,18 @@ private:
   }
 
   //
-  // Enum of the Bochs CMP instructions. This should be kept in sync with the
-  // Bochs. Handling logic can be found in bochs/cpu/arith32.cpp.
+  // Enum of the Bochs comparison-like instructions. This should be kept in sync
+  // with the Bochs. Handling logic can be found in bochs/cpu/arith32.cpp.
   //
 
-  enum class BochsCmpIns_t : uint32_t {
+  enum class BochsIns_t : uint32_t {
     //
     // 64-bit comparison instructions.
     //
     BX_IA_CMP_RAXId = 0x491,
     BX_IA_CMP_EqsIb = 0x4a3,
     BX_IA_CMP_EqId = 0x49a, // CMP_EqIdM, CMP_EqIdR
-    BX_IA_CMP_GqEq = 0x47f, // CMP_GqEqR, CMP_GqEqM
+    BX_IA_CMP_GqEq = 0x47f, // CMP_GqEqM, CMP_GqEqR
     BX_IA_CMP_EqGq = 0x488, // CMP_EqGqM
 
     //
@@ -369,7 +369,7 @@ private:
     BX_IA_CMP_EAXId = 0x38,
     BX_IA_CMP_EdsIb = 0x6a,
     BX_IA_CMP_EdId = 0x61, // CMP_EdIdM, CMP_EdIdR
-    BX_IA_CMP_GdEd = 0x86, // CMP_GdEdR, CMP_GdEdM
+    BX_IA_CMP_GdEd = 0x86, // CMP_GdEdM, CMP_GdEdR
     BX_IA_CMP_EdGd = 0x1d, // CMP_EdGdM
 
     //
@@ -378,15 +378,119 @@ private:
     BX_IA_CMP_AXIw = 0x2f,
     BX_IA_CMP_EwsIb = 0x58,
     BX_IA_CMP_EwIw = 0x4f, // CMP_EwIwM, CMP_EwIwR
-    BX_IA_CMP_GwEw = 0x7e, // CMP_GwEwR, CMP_GwEwM
+    BX_IA_CMP_GwEw = 0x7e, // CMP_GwEwM, CMP_GwEwR
     BX_IA_CMP_EwGw = 0x14, // CMP_EwGwM
+
+    //
+    // 64-bit subtraction instructions.
+    //
+    BX_IA_SUB_RAXId = 0x48e,
+    BX_IA_SUB_EqsIb = 0x4a0,
+    BX_IA_SUB_EqId = 0x497, // SUB_EqIdM, SUB_EqIdR
+    BX_IA_SUB_GqEq = 0x47d, // SUB_GqEqM, SUB_GqEqR
+    BX_IA_SUB_EqGq = 0x485, // SUB_EqGqM
+
+    //
+    // 32-bit subtraction instructions.
+    //
+    BX_IA_SUB_EAXId = 0x3b,
+    BX_IA_SUB_EdsIb = 0x67,
+    BX_IA_SUB_EdId = 0x5e, // SUB_EdIdM, SUB_EdIdR
+    BX_IA_SUB_GdEd = 0x89, // SUB_GdEdM, SUB_GdEdR
+    BX_IA_SUB_EdGd = 0x20, // SUB_EdGdM
+
+    //
+    // 16-bit subtraction instructions.
+    //
+    BX_IA_SUB_AXIw = 0x32,
+    BX_IA_SUB_EwsIb = 0x55,
+    BX_IA_SUB_EwIw = 0x4c, // SUB_EwIwM, SUB_EwIwR
+    BX_IA_SUB_GwEw = 0x81, // SUB_GwEwM, SUB_GwEwR
+    BX_IA_SUB_EwGw = 0x17  // SUB_EwGwM
   };
 
   //
-  // Converts BochsCmpIns_t to a string.
+  // Converts BochsIns_t to a string.
   //
 
-  std::string_view BochsCmpInsToString(const BochsCmpIns_t Ins);
+  std::string_view BochsInsToString(const BochsIns_t Ins) {
+    switch (Ins) {
+
+    // 64-bit comparison instructions.
+    case BochsIns_t::BX_IA_CMP_RAXId:
+      return "CMP_RAXId";
+    case BochsIns_t::BX_IA_CMP_EqsIb:
+      return "CMP_EqsIb";
+    case BochsIns_t::BX_IA_CMP_EqId:
+      return "CMP_EqId";
+    case BochsIns_t::BX_IA_CMP_GqEq:
+      return "CMP_GqEq";
+    case BochsIns_t::BX_IA_CMP_EqGq:
+      return "CMP_EqGq";
+
+    // 32-bit comparison instructions.
+    case BochsIns_t::BX_IA_CMP_EAXId:
+      return "CMP_EAXId";
+    case BochsIns_t::BX_IA_CMP_EdsIb:
+      return "CMP_EdsIb";
+    case BochsIns_t::BX_IA_CMP_EdId:
+      return "CMP_EdId";
+    case BochsIns_t::BX_IA_CMP_GdEd:
+      return "CMP_GdEd";
+    case BochsIns_t::BX_IA_CMP_EdGd:
+      return "CMP_EdGd";
+
+    // 16-bit comparison instructions.
+    case BochsIns_t::BX_IA_CMP_AXIw:
+      return "CMP_AXIw";
+    case BochsIns_t::BX_IA_CMP_EwsIb:
+      return "CMP_EwsIb";
+    case BochsIns_t::BX_IA_CMP_EwIw:
+      return "CMP_EwIw";
+    case BochsIns_t::BX_IA_CMP_GwEw:
+      return "CMP_GwEw";
+    case BochsIns_t::BX_IA_CMP_EwGw:
+      return "CMP_EwGw";
+
+    // 64-bit subtraction instructions.
+    case BochsIns_t::BX_IA_SUB_RAXId:
+      return "SUB_RAXId";
+    case BochsIns_t::BX_IA_SUB_EqsIb:
+      return "SUB_EqsIb";
+    case BochsIns_t::BX_IA_SUB_EqId:
+      return "SUB_EqId";
+    case BochsIns_t::BX_IA_SUB_GqEq:
+      return "SUB_GqEq";
+    case BochsIns_t::BX_IA_SUB_EqGq:
+      return "SUB_EqGq";
+
+    // 32-bit subtraction instructions.
+    case BochsIns_t::BX_IA_SUB_EAXId:
+      return "SUB_EAXId";
+    case BochsIns_t::BX_IA_SUB_EdsIb:
+      return "SUB_EdsIb";
+    case BochsIns_t::BX_IA_SUB_EdId:
+      return "SUB_EdId";
+    case BochsIns_t::BX_IA_SUB_GdEd:
+      return "SUB_GdEd";
+    case BochsIns_t::BX_IA_SUB_EdGd:
+      return "SUB_EdGd";
+
+    // 16-bit subtraction instructions.
+    case BochsIns_t::BX_IA_SUB_AXIw:
+      return "SUB_AXIw";
+    case BochsIns_t::BX_IA_SUB_EwsIb:
+      return "SUB_EwsIb";
+    case BochsIns_t::BX_IA_SUB_EwIw:
+      return "SUB_EwIw";
+    case BochsIns_t::BX_IA_SUB_GwEw:
+      return "SUB_GwEw";
+    case BochsIns_t::BX_IA_SUB_EwGw:
+      return "SUB_EwGw";
+    }
+
+    return "<unknown>";
+  }
 
   //
   // Enum of instruction addressing modes.
@@ -445,12 +549,12 @@ private:
   bool IsGpReg(const uint32_t RegId) { return RegId < bochscpu_total_gpregs(); }
 
   //
-  // Log the result of a CMP instruction.
+  // Log the result of operands extraction.
   //
 
   template <class T>
-  void LafCompcovLogCmpComparison(bochscpu_instr_t *Ins,
-                                  const std::optional<OpPair_t<T>> Operands) {
+  void LafCompcovLogInstruction(bochscpu_instr_t *Ins,
+                                const std::optional<OpPair_t<T>> Operands) {
     if constexpr (LafCompcovLoggingOn) {
       const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
 
@@ -464,25 +568,26 @@ private:
       std::array<char, 256> DisasmBuffer;
       bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
                              DisasmBuffer.data(), DisasmStyle::Intel);
-      std::string DisasmString(DisasmBuffer.data());
+      const std::string DisasmString(DisasmBuffer.data());
 
       //
       // Extract Bochs instruction type and addressing mode.
       //
 
-      std::string_view CmpInstrType = BochsCmpInsToString(
-          static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins)));
-      std::string_view AddressingMode =
+      const std::string_view CmpInstrType = BochsInsToString(
+          static_cast<BochsIns_t>(bochscpu_instr_bx_opcode(Ins)));
+      const std::string_view AddressingMode =
           BochsInsAddressingModeToString(BochsInsAddressingMode(Ins));
 
       if (!Operands.has_value()) {
-        LafCompcovDebugPrint("Extraction failed for comparison : {:#18x} {:46} "
-                             "-> {}{}(XXX, XXX)\n",
-                             Rip, DisasmString, CmpInstrType, AddressingMode);
+        LafCompcovDebugPrint(
+            "Extraction failed for instruction : {:#18x} {:46} "
+            "-> {}{}(XXX, XXX)\n",
+            Rip, DisasmString, CmpInstrType, AddressingMode);
         return;
       }
 
-      LafCompcovDebugPrint("Extracted operands for comparison: {:#18x} "
+      LafCompcovDebugPrint("Extracted operands for instruction: {:#18x} "
                            "{:46} "
                            "-> {}{}({:#x}, {:#x})\n",
                            Rip, DisasmString, CmpInstrType, AddressingMode,
@@ -491,17 +596,21 @@ private:
   }
 
   //
-  // LAF entry point. Tries to split various types of comparisons into smaller
-  // comparisons. (e.g. 64-bit -> 8 x 8-bit, 32-bit -> 4 x 8-bit, etc)
+  // LAF entry point. Tries to split various types of comparisons/substractions
+  // into smaller comparisons/substractions. (e.g. 64-bit -> 8 x 8-bit, 32-bit
+  // -> 4 x 8-bit, etc)
   //
 
   void LafSplitCompares(bochscpu_instr_t *Ins);
 
   //
-  // Tries to split an integer comparison.
+  // LAF generic handlers for 64-bit, 32-bit and 16-bit integer
+  // comparisons/subtractions.
   //
 
-  bool LafTrySplitIntCmp(bochscpu_instr_t *Ins);
+  void LafHandle64BitIntCmp(const uint64_t Op1, const uint64_t Op2);
+  void LafHandle32BitIntCmp(const uint32_t Op1, const uint32_t Op2);
+  void LafHandle16BitIntCmp(const uint16_t Op1, const uint16_t Op2);
 
   //
   // Extracts immediate operand from a Bochs instruction.
@@ -547,12 +656,16 @@ private:
   }
 
   //
-  // Extracts operands for CMP instructions which compare an effective value
+  // CMP/SUB instruction handling logic below.
+  //
+
+  //
+  // Extracts operands for CMP/SUB instructions which compare an effective value
   // (memory) with an immediate. (CMP_EqIdM, CMP_EdIdM, CMP_EwIwM)
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_EIMem(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_EIMem(bochscpu_instr_t *Ins) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
@@ -573,12 +686,12 @@ private:
   }
 
   //
-  // Extracts operands for CMP instructions which compare an effective value
+  // Extracts operands for CMP/SUB instructions which compare an effective value
   // (register) with an immediate. (CMP_EqIdR, CMP_EdIdR, CMP_EwIwR)
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_EIReg(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_EIReg(bochscpu_instr_t *Ins) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
@@ -596,21 +709,21 @@ private:
   }
 
   //
-  // Generic operands extractor for CMP instructions which compare an effective
-  // value with immediate (sign-extended) (either memory or register).
+  // Generic operands extractor for CMP/SUB instructions which compare an
+  // effective value with immediate (sign-extended) (either memory or register).
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_EsI(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_EsI(bochscpu_instr_t *Ins) {
     //
     // Extract operands depending on the addressing mode.
     //
 
     const InsAddressingMode_t AddrMod = BochsInsAddressingMode(Ins);
     if (AddrMod == InsAddressingMode_t::Mem) {
-      return LafCmpOperands_EIMem<T>(Ins);
+      return LafExtractOperands_EIMem<T>(Ins);
     } else if (AddrMod == InsAddressingMode_t::Reg) {
-      return LafCmpOperands_EIReg<T>(Ins);
+      return LafExtractOperands_EIReg<T>(Ins);
     }
 
     LafCompcovDebugPrint("Invalid AddrMod for CMP_EsI\n");
@@ -618,21 +731,21 @@ private:
   }
 
   //
-  // Generic operands extractor for CMP instructions which compare an effective
-  // value with immediate (either memory or register).
+  // Generic operands extractor for CMP/SUB instructions which compare an
+  // effective value with immediate (either memory or register).
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_EI(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_EI(bochscpu_instr_t *Ins) {
     //
     // Extract operands depending on the addressing mode.
     //
 
     const InsAddressingMode_t AddrMod = BochsInsAddressingMode(Ins);
     if (AddrMod == InsAddressingMode_t::Mem) {
-      return LafCmpOperands_EIMem<T>(Ins);
+      return LafExtractOperands_EIMem<T>(Ins);
     } else if (AddrMod == InsAddressingMode_t::Reg) {
-      return LafCmpOperands_EIReg<T>(Ins);
+      return LafExtractOperands_EIReg<T>(Ins);
     }
 
     LafCompcovDebugPrint("Invalid AddrMod for CMP_EI\n");
@@ -640,27 +753,29 @@ private:
   }
 
   //
-  // Generic operands extractor for CMP instructions which compare a register
-  // (only rax/eax/ax) with an immediate.
+  // Generic operands extractor for CMP/SUB instructions which compare a
+  // register (only rax/eax/ax) with an immediate.
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_REGI(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_REGI(bochscpu_instr_t *Ins) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
                   "Invalid operand size for CMP_REGI");
-    return LafCmpOperands_EIReg<T>(Ins);
+    // This instruction only supports rax/eax/ax, so we don't really need a new
+    // handler, we can just use the one for CMP_EIReg.
+    return LafExtractOperands_EIReg<T>(Ins);
   }
 
   //
-  // Extracts operands for CMP instructions which compare a general purpose
+  // Extracts operands for CMP/SUB instructions which compare a general purpose
   // register with an effective value (memory). (CMP_GqEqM, CMP_GdEdM,
   // CMP_GwEwM).
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_GEMem(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_GEMem(bochscpu_instr_t *Ins) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
@@ -682,13 +797,13 @@ private:
   }
 
   //
-  // Extracts operands for CMP instructions which compare a general purpose
+  // Extracts operands for CMP/SUB instructions which compare a general purpose
   // register with an effective value (register). (CMP_GqEqR, CMP_GdEdR,
   // CMP_GwEwR).
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_GEReg(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_GEReg(bochscpu_instr_t *Ins) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
@@ -707,21 +822,21 @@ private:
   }
 
   //
-  // Generic operands extractor for CMP instructions which compare a general
+  // Generic operands extractor for CMP/SUB instructions which compare a general
   // purpose register with an effective value (memory or register).
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_GE(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_GE(bochscpu_instr_t *Ins) {
     //
     // Extract operands depending on the addressing mode.
     //
 
     const InsAddressingMode_t AddrMod = BochsInsAddressingMode(Ins);
     if (AddrMod == InsAddressingMode_t::Mem) {
-      return LafCmpOperands_GEMem<T>(Ins);
+      return LafExtractOperands_GEMem<T>(Ins);
     } else if (AddrMod == InsAddressingMode_t::Reg) {
-      return LafCmpOperands_GEReg<T>(Ins);
+      return LafExtractOperands_GEReg<T>(Ins);
     }
 
     LafCompcovDebugPrint("Invalid AddrMod for CMP_GE\n");
@@ -729,13 +844,13 @@ private:
   }
 
   //
-  // Extracts operands for CMP instructions which compare an effective value
+  // Extracts operands for CMP/SUB instructions which compare an effective value
   // (memory) with a general purpose register. (CMP_EqGqM, CMP_EdGdM,
   // CMP_EwGwM).
   //
 
   template <typename T>
-  std::optional<OpPair_t<T>> LafCmpOperands_EG(bochscpu_instr_t *Ins) {
+  std::optional<OpPair_t<T>> LafExtractOperands_EG(bochscpu_instr_t *Ins) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
@@ -756,21 +871,16 @@ private:
   }
 
   //
-  // Comparison operands extraction.
+  // Tries to split an integer comparison/substraction.
   //
 
-  std::optional<OpPair64_t> LafExtractCmp64BitOperands(bochscpu_instr_t *Ins);
-  std::optional<OpPair32_t> LafExtractCmp32BitOperands(bochscpu_instr_t *Ins);
-  std::optional<OpPair16_t> LafExtractCmp16BitOperands(bochscpu_instr_t *Ins);
+  bool LafTrySplitIntCmpSub(bochscpu_instr_t *Ins);
 
   //
-  // LAF handlers for CMP instructions.
+  // Comparison/Substraction operands extraction.
   //
 
-  void LafHandle64BitIntCmp(const uint64_t Op1, const uint64_t Op2);
-  void LafHandle32BitIntCmp(const uint32_t Op1, const uint32_t Op2);
-  void LafHandle16BitIntCmp(const uint16_t Op1, const uint16_t Op2);
-
-  bool LafTrySplitIntSub(bochscpu_instr_t *Ins);
-  bool LafTrySplitIntCmpXchg(bochscpu_instr_t *Ins);
+  std::optional<OpPair64_t> LafExtract64BitOperands(bochscpu_instr_t *Ins);
+  std::optional<OpPair32_t> LafExtract32BitOperands(bochscpu_instr_t *Ins);
+  std::optional<OpPair16_t> LafExtract16BitOperands(bochscpu_instr_t *Ins);
 };
