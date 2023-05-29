@@ -5,16 +5,24 @@ REM set _LINK_=/DEBUG:FULL
 
 pushd .
 
-mkdir bxbuild-win
+rmdir /s /q bxbuild-win\bochscpu
+rmdir /s /q bxbuild-win\bochscpu-ffi
+
 cd bxbuild-win
 
 REM Use WSL to configure / clone the repositories.
-bash -c "git clone https://github.com/yrp604/bochscpu-build.git && git clone https://github.com/yrp604/bochscpu && git clone https://github.com/yrp604/bochscpu-ffi && cd bochscpu-build && bash prep.sh && cd Bochs/bochs && bash .conf.cpu-msvc"
+@REM bash -c "git clone https://github.com/m4drat/bochscpu-build.git && git clone https://github.com/m4drat/bochscpu && git clone https://github.com/m4drat/bochscpu-ffi && cd bochscpu-build && bash prep.sh && cd Bochs/bochs && bash .conf.cpu-msvc"
+
+@REM robocopy ..\..\..\..\..\bochscpu-build bochscpu-build /e
+robocopy ..\..\..\..\..\bochscpu bochscpu /e
+robocopy ..\..\..\..\..\bochscpu-ffi bochscpu-ffi /e
+
+@REM rmdir /s /q .\bochscpu-build\Bochs
 
 REM Build bochs; libinstrument.a is expected to fail to build so don't freak out.
 REM You can run nmake all-clean to clean up the build.
 cd bochscpu-build\Bochs\bochs
-nmake
+@REM nmake
 
 REM Remove old files in bochscpu.
 rmdir /s /q ..\..\..\bochscpu\bochs
@@ -37,6 +45,10 @@ REM cargo clean -p bochscpu shits its pants on my computer so rebuilding everyth
 cargo clean
 cargo build
 cargo build --release
+
+REM Copy generated headers and compiled libs to the right place.
+copy bochscpu.hpp ..\..\include\bochscpu.hpp
+copy target\release\bochscpu_ffi.lib ..\..\lib\bochscpu_ffi.lib
 
 REM Get back to where we were.
 popd
