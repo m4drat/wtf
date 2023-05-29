@@ -425,7 +425,7 @@ BochscpuBackend_t::Run(const uint8_t *Buffer, const uint64_t BufferSize) {
 }
 
 std::optional<BochscpuBackend_t::OpPair64_t>
-BochscpuBackend_t::LafExtract64BitOperands(bochscpu_instr_t *Ins) {
+BochscpuBackend_t::LafExtractCmp64BitOperands(bochscpu_instr_t *Ins) {
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
 
@@ -455,7 +455,7 @@ BochscpuBackend_t::LafExtract64BitOperands(bochscpu_instr_t *Ins) {
 }
 
 std::optional<BochscpuBackend_t::OpPair32_t>
-BochscpuBackend_t::LafExtract32BitOperands(bochscpu_instr_t *Ins) {
+BochscpuBackend_t::LafExtractCmp32BitOperands(bochscpu_instr_t *Ins) {
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
 
@@ -485,7 +485,7 @@ BochscpuBackend_t::LafExtract32BitOperands(bochscpu_instr_t *Ins) {
 }
 
 std::optional<BochscpuBackend_t::OpPair16_t>
-BochscpuBackend_t::LafExtract16BitOperands(bochscpu_instr_t *Ins) {
+BochscpuBackend_t::LafExtractCmp16BitOperands(bochscpu_instr_t *Ins) {
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
 
@@ -521,6 +521,9 @@ void BochscpuBackend_t::LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2) {
     InsertCoverageEntry(Gva_t{HashedLoc});
   };
 
+  // The same as described here:
+  // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
+
   if ((Op1 & 0xff00000000000000) == (Op2 & 0xff00000000000000)) {
     UpdateCoverage(HashedLoc + 6);
     if ((Op1 & 0xff000000000000) == (Op2 & 0xff000000000000)) {
@@ -549,8 +552,10 @@ void BochscpuBackend_t::LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2) {
 
   auto UpdateCoverage = [this](uint64_t HashedLoc) {
     InsertCoverageEntry(Gva_t{HashedLoc});
-    RunStats_.LafCmplogSuccessfullHits++;
   };
+
+  // The same as described here:
+  // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
     UpdateCoverage(HashedLoc + 2);
@@ -568,8 +573,10 @@ void BochscpuBackend_t::LafHandle16BitIntCmp(uint16_t Op1, uint16_t Op2) {
 
   auto UpdateCoverage = [this](uint64_t HashedLoc) {
     InsertCoverageEntry(Gva_t{HashedLoc});
-    RunStats_.LafCmplogSuccessfullHits++;
   };
+
+  // The same as described here:
+  // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
     UpdateCoverage(HashedLoc);
@@ -580,8 +587,8 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   // Potentially, this function might be a little too aggressive in splitting
   // instructions. The problem is that we are splitting not only comparison
   // instructions with immediate operands, but also instructions with register,
-  // memory, and register/memory operands. This potentially might result in a
-  // lot of misleading coverage reports.
+  // memory, and register/memory operands. This potentially might produce some
+  // misleading coverage entries.
   const BochsCmpIns_t Op =
       static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins));
 
@@ -592,13 +599,13 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EqId:
   case BochsCmpIns_t::BX_IA_CMP_GqEq:
   case BochsCmpIns_t::BX_IA_CMP_EqGq:
-    if (std::optional<OpPair64_t> operands = LafExtract64BitOperands(Ins)) {
-      LafCompcovLogComparison(Ins, operands);
+    if (std::optional<OpPair64_t> operands = LafExtractCmp64BitOperands(Ins)) {
+      LafCompcovLogCmpComparison(Ins, operands);
       LafHandle64BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogComparison<uint64_t>(Ins, {});
+    LafCompcovLogCmpComparison<uint64_t>(Ins, {});
     return false;
   // 32-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_EAXId:
@@ -606,13 +613,13 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EdsIb:
   case BochsCmpIns_t::BX_IA_CMP_GdEd:
   case BochsCmpIns_t::BX_IA_CMP_EdGd:
-    if (std::optional<OpPair32_t> operands = LafExtract32BitOperands(Ins)) {
-      LafCompcovLogComparison(Ins, operands);
+    if (std::optional<OpPair32_t> operands = LafExtractCmp32BitOperands(Ins)) {
+      LafCompcovLogCmpComparison(Ins, operands);
       LafHandle32BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogComparison<uint32_t>(Ins, {});
+    LafCompcovLogCmpComparison<uint32_t>(Ins, {});
     return false;
   // 16-bit comparison instructions.
   case BochsCmpIns_t::BX_IA_CMP_AXIw:
@@ -620,13 +627,13 @@ bool BochscpuBackend_t::LafTrySplitIntCmp(bochscpu_instr_t *Ins) {
   case BochsCmpIns_t::BX_IA_CMP_EwsIb:
   case BochsCmpIns_t::BX_IA_CMP_GwEw:
   case BochsCmpIns_t::BX_IA_CMP_EwGw:
-    if (std::optional<OpPair16_t> operands = LafExtract16BitOperands(Ins)) {
-      LafCompcovLogComparison(Ins, operands);
+    if (std::optional<OpPair16_t> operands = LafExtractCmp16BitOperands(Ins)) {
+      LafCompcovLogCmpComparison(Ins, operands);
       LafHandle16BitIntCmp(operands->Op1, operands->Op2);
       return true;
     }
 
-    LafCompcovLogComparison<uint16_t>(Ins, {});
+    LafCompcovLogCmpComparison<uint16_t>(Ins, {});
     return false;
   }
 
@@ -688,10 +695,23 @@ BochscpuBackend_t::BochsCmpInsToString(const BochsCmpIns_t Ins) {
 }
 
 void BochscpuBackend_t::LafSplitCompares(bochscpu_instr_t *Ins) {
+
+  //
+  // First try to split a given instruction, assuming it is a CMP instruction.
+  //
+
   if (LafTrySplitIntCmp(Ins)) {
     return;
+
+    //
+    // If that didn't work, try to split a SUB instruction.
+    //
   } else if (LafTrySplitIntSub(Ins)) {
     return;
+
+    //
+    // Finally, if that didn't work, try to split a CMPXCHG instruction.
+    //
   } else if (LafTrySplitIntCmpXchg(Ins)) {
     return;
   }

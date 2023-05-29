@@ -20,6 +20,10 @@ void CompcovPrint(const char *Format, const Args_t &...args) {
   }
 }
 
+//
+// Get the minimum length of two strings, clamping at max_length.
+//
+
 template <class T>
 uint64_t CompcovStrlen2(const T *s1, const T *s2, uint64_t max_length) {
 
@@ -32,14 +36,16 @@ uint64_t CompcovStrlen2(const T *s1, const T *s2, uint64_t max_length) {
   return len;
 }
 
+//
+// Do a comparison of two buffers and update the coverage accordingly.
+//
+
 template <class T>
 void CompcovTrace(const uint64_t RetLoc, const T *Buffer1, const T *Buffer2,
                   const uint64_t Length) {
   uint64_t HashedLoc = SplitMix64(RetLoc);
   for (uint32_t i = 0; i < Length && Buffer1[i] == Buffer2[i]; i++) {
-    // fmt::print("compcov: Got a hit: Buffer[{}] = {}\n", i, Buffer1[i]);
     g_Backend->InsertCoverageEntry(Gva_t(HashedLoc + i));
-
     // if (Buffer1[i] == Buffer2[i]) {
     //   g_Backend->InsertCoverageEntry(Gva_t(HashedLoc + i + SuccessfulCmp));
     //   SuccessfulCmp++;
@@ -47,9 +53,21 @@ void CompcovTrace(const uint64_t RetLoc, const T *Buffer1, const T *Buffer2,
   }
 }
 
+//
+// Generic hook for strcmp.
+//
+
 void CompcovHookStrcmp(Backend_t *Backend) {
+  //
+  // Extract the arguments.
+  //
+
   Gva_t Str1Ptr = Gva_t(Backend->GetArg(0));
   Gva_t Str2Ptr = Gva_t(Backend->GetArg(1));
+
+  //
+  // Read the strings.
+  //
 
   std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH + 2> Str1{};
   std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH + 2> Str2{};
@@ -82,8 +100,8 @@ void CompcovHookStrcmp(Backend_t *Backend) {
   }
 
   //
-  // As the breakpoint is set on the beginning of the function, we <<<should>>>
-  // be able to extract the return address by reading the first QWORD from the
+  // As the breakpoint is set on the beginning of the function, we should be
+  // able to extract the return address by reading the first QWORD from the
   // stack.
   //
 
@@ -104,7 +122,15 @@ void CompcovHookStrcmp(Backend_t *Backend) {
   CompcovTrace(RetLoc, Str1.data(), Str2.data(), Length);
 }
 
+//
+// Generic hook for strncmp.
+//
+
 void CompcovHookStrncmp(Backend_t *Backend) {
+  //
+  // Extract the arguments.
+  //
+
   Gva_t Str1Ptr = Gva_t(Backend->GetArg(0));
   Gva_t Str2Ptr = Gva_t(Backend->GetArg(1));
   uint64_t MaxCount = Backend->GetArg(2);
@@ -118,6 +144,10 @@ void CompcovHookStrncmp(Backend_t *Backend) {
     CompcovPrint("{}: MaxCount > COMPCOV_MAX_CMP_LENGTH\n", __func__);
     return;
   }
+
+  //
+  // Read the strings.
+  //
 
   std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH + 1> Str1{};
   std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH + 1> Str2{};
@@ -137,8 +167,8 @@ void CompcovHookStrncmp(Backend_t *Backend) {
   uint64_t Length = CompcovStrlen2(Str1.data(), Str2.data(), MaxCount);
 
   //
-  // As the breakpoint is set on the beginning of the function, we <<<should>>>
-  // be able to extract the return address by reading the first QWORD from the
+  // As the breakpoint is set on the beginning of the function, we should be
+  // able to extract the return address by reading the first QWORD from the
   // stack.
   //
 
@@ -159,7 +189,15 @@ void CompcovHookStrncmp(Backend_t *Backend) {
   CompcovTrace(RetLoc, Str1.data(), Str2.data(), Length);
 }
 
+//
+// Generic hook for memcmp.
+//
+
 void CompcovHookMemcmp(Backend_t *Backend) {
+  //
+  // Extract the arguments.
+  //
+
   Gva_t Buf1Ptr = Gva_t(Backend->GetArg(0));
   Gva_t Buf2Ptr = Gva_t(Backend->GetArg(1));
   uint64_t Size = Backend->GetArg(2);
@@ -173,6 +211,10 @@ void CompcovHookMemcmp(Backend_t *Backend) {
     CompcovPrint("{}: Size > COMPCOV_MAX_CMP_LENGTH\n", __func__);
     return;
   }
+
+  //
+  // Read the buffers.
+  //
 
   std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH + 1> Buf1{};
   std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH + 1> Buf2{};
@@ -190,8 +232,8 @@ void CompcovHookMemcmp(Backend_t *Backend) {
   }
 
   //
-  // As the breakpoint is set on the beginning of the function, we <<<should>>>
-  // be able to extract the return address by reading the first QWORD from the
+  // As the breakpoint is set on the beginning of the function, we should be
+  // able to extract the return address by reading the first QWORD from the
   // stack.
   //
 

@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <functional>
+#include <stdexcept>
 
 struct BochscpuRunStats_t {
   uint64_t NumberInstructionsExecuted = 0;
@@ -348,8 +349,8 @@ private:
   }
 
   //
-  // Enum of the Bochs CMP instructions.
-  // Handling logic can be found in bochs/cpu/arith32.cpp.
+  // Enum of the Bochs CMP instructions. This should be kept in sync with the
+  // Bochs. Handling logic can be found in bochs/cpu/arith32.cpp.
   //
 
   enum class BochsCmpIns_t : uint32_t {
@@ -448,10 +449,14 @@ private:
   //
 
   template <class T>
-  void LafCompcovLogComparison(bochscpu_instr_t *Ins,
-                               std::optional<OpPair_t<T>> Operands) {
+  void LafCompcovLogCmpComparison(bochscpu_instr_t *Ins,
+                                  std::optional<OpPair_t<T>> Operands) {
     if constexpr (LafCompcovLoggingOn) {
       const Gva_t Rip = Gva_t(bochscpu_cpu_rip(Cpu_));
+
+      //
+      // Disassemble the instruction.
+      //
 
       std::array<uint8_t, 128> InstructionBuffer;
       VirtRead(Rip, InstructionBuffer.data(), sizeof(InstructionBuffer));
@@ -460,6 +465,11 @@ private:
       bochscpu_opcode_disasm(1, 1, 0, 0, InstructionBuffer.data(),
                              DisasmBuffer.data(), DisasmStyle::Intel);
       std::string DisasmString(DisasmBuffer.data());
+
+      //
+      // Extract Bochs instruction type and addressing mode.
+      //
+
       std::string_view CmpInstrType = BochsCmpInsToString(
           static_cast<BochsCmpIns_t>(bochscpu_instr_bx_opcode(Ins)));
       std::string_view AddressingMode =
@@ -476,12 +486,13 @@ private:
                            "{:46} "
                            "-> {}{}({:#x}, {:#x})\n",
                            Rip, DisasmString, CmpInstrType, AddressingMode,
-                           Operands.Op1, Operands.Op2);
+                           Operands->Op1, Operands->Op2);
     }
   }
 
   //
-  // LAF entry point.
+  // LAF entry point. Tries to split various types of comparisons into smaller
+  // comparisons. (e.g. 64-bit -> 8 x 8-bit, 32-bit -> 4 x 8-bit, etc)
   //
 
   void LafSplitCompares(bochscpu_instr_t *Ins);
@@ -493,76 +504,108 @@ private:
   bool LafTrySplitIntCmp(bochscpu_instr_t *Ins);
 
   //
-  // Processes a CMP instruction which compares an effective value (memory) with
-  // an immediate. (CMP_EqIdM, CMP_EdIdM, etc)
+  // Extracts immediate operand from a Bochs instruction.
+  //
+
+  template <typename T> T LafBochsInstrImm(bochscpu_instr_t *Ins) {
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for LafBochsInstrImm");
+
+    if constexpr (std::is_same<T, uint64_t>::value) {
+      return bochscpu_instr_imm64(Ins);
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+      return bochscpu_instr_imm32(Ins);
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+      return bochscpu_instr_imm16(Ins);
+    }
+  }
+
+  //
+  // Reads a general-purpose register given its ID from the Bochs CPU.
+  //
+
+  template <typename T> T LafBochsGetGpReg(GpRegs GpReg) {
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for LafBochsGetGpReg");
+
+    if (!IsGpReg((uint32_t)GpReg)) {
+      LafCompcovDebugPrint("Invalid general-purpose register ID {}\n", GpReg);
+      throw std::runtime_error("Invalid general-purpose register ID");
+    }
+
+    if constexpr (std::is_same<T, uint64_t>::value) {
+      return bochscpu_get_reg64(Cpu_, GpReg);
+    } else if constexpr (std::is_same<T, uint32_t>::value) {
+      return bochscpu_get_reg32(Cpu_, GpReg);
+    } else if constexpr (std::is_same<T, uint16_t>::value) {
+      return bochscpu_get_reg16(Cpu_, GpReg);
+    }
+  }
+
+  //
+  // Extracts operands for CMP instructions which compare an effective value
+  // (memory) with an immediate. (CMP_EqIdM, CMP_EdIdM, CMP_EwIwM)
   //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EIMem(bochscpu_instr_t *Ins) {
-    OpPair_t<T> Res = {};
-    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for LafBochsInstrReg");
 
-    if constexpr (std::is_same<T, uint64_t>::value) {
-      // BX_CPU_C::CMP_EqIdM
-      Res.Op1 = VirtRead8(Address);
-      Res.Op2 = bochscpu_instr_imm64(Ins);
-    } else if constexpr (std::is_same<T, uint32_t>::value) {
-      // BX_CPU_C::CMP_EdIdM
-      Res.Op1 = VirtRead4(Address);
-      Res.Op2 = bochscpu_instr_imm32(Ins);
-    } else if constexpr (std::is_same<T, uint16_t>::value) {
-      // BX_CPU_C::CMP_EwIwM
-      Res.Op1 = VirtRead2(Address);
-      Res.Op2 = bochscpu_instr_imm16(Ins);
-    } else {
-      throw std::runtime_error("Invalid operand size for CMP_EIMem");
+    OpPair_t<T> Res = {};
+
+    // Extract the first operand (memory location).
+    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
+    if (!VirtReadStruct(Address, &Res.Op1)) {
+      return {};
     }
+
+    // Extract the second operand (immediate)
+    Res.Op2 = LafBochsInstrImm<T>(Ins);
 
     return Res;
   }
 
   //
-  // Processes a CMP instruction which compares an effective value (register)
-  // with an immediate. (CMP_EqIdR, CMP_EdIdR, etc)
+  // Extracts operands for CMP instructions which compare an effective value
+  // (register) with an immediate. (CMP_EqIdR, CMP_EdIdR, CMP_EwIwR)
   //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EIReg(bochscpu_instr_t *Ins) {
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for LafBochsInstrReg");
+
     OpPair_t<T> Res = {};
-    uint32_t RegId1 = bochscpu_instr_dst(Ins);
+    GpRegs GpReg = (GpRegs)bochscpu_instr_dst(Ins);
 
-    if (!IsGpReg(RegId1)) {
-      LafCompcovDebugPrint("Invalid dst register ID {} for CMP_EIReg\n",
-                           RegId1);
-      return {};
-    }
-
-    if constexpr (std::is_same<T, uint64_t>::value) {
-      // BX_CPU_C::CMP_GqEqR
-      Res.Op1 = bochscpu_get_reg64(Cpu_, (GpRegs)RegId1);
-      Res.Op2 = bochscpu_instr_imm64(Ins);
-    } else if constexpr (std::is_same<T, uint32_t>::value) {
-      // BX_CPU_C::CMP_GdEdR
-      Res.Op1 = bochscpu_get_reg32(Cpu_, (GpRegs)RegId1);
-      Res.Op2 = bochscpu_instr_imm32(Ins);
-    } else if constexpr (std::is_same<T, uint16_t>::value) {
-      // BX_CPU_C::CMP_GwEwR
-      Res.Op1 = bochscpu_get_reg16(Cpu_, (GpRegs)RegId1);
-      Res.Op2 = bochscpu_instr_imm16(Ins);
-    } else {
-      throw std::runtime_error("Invalid operand size for CMP_EIReg");
-    }
+    // Extract the first operand (effective value from register).
+    Res.Op1 = LafBochsGetGpReg<T>(GpReg);
+    // Extract the second operand (immediate)
+    Res.Op2 = LafBochsInstrImm<T>(Ins);
 
     return Res;
   }
 
   //
-  // Generic handler for CMP instructions which compare an effective value with
-  // immediate (sign-extended).
+  // Generic operands extractor for CMP instructions which compare an effective
+  // value with immediate (sign-extended) (either memory or register).
   //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EsI(bochscpu_instr_t *Ins) {
+    //
+    // Extract operands depending on the addressing mode.
+    //
+
     const InsAddressingMode_t AddrMod = BochsInsAddressingMode(Ins);
     if (AddrMod == InsAddressingMode_t::Mem) {
       return LafCmpOperands_EIMem<T>(Ins);
@@ -575,12 +618,16 @@ private:
   }
 
   //
-  // Generic handler for CMP instructions which compare an effective value with
-  // immediate.
+  // Generic operands extractor for CMP instructions which compare an effective
+  // value with immediate (either memory or register).
   //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EI(bochscpu_instr_t *Ins) {
+    //
+    // Extract operands depending on the addressing mode.
+    //
+
     const InsAddressingMode_t AddrMod = BochsInsAddressingMode(Ins);
     if (AddrMod == InsAddressingMode_t::Mem) {
       return LafCmpOperands_EIMem<T>(Ins);
@@ -592,85 +639,84 @@ private:
     return {};
   }
 
+  //
+  // Generic operands extractor for CMP instructions which compare a register
+  // (only rax/eax/ax) with an immediate.
+  //
+
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_REGI(bochscpu_instr_t *Ins) {
     static_assert(std::is_same<T, uint64_t>::value ||
                       std::is_same<T, uint32_t>::value ||
                       std::is_same<T, uint16_t>::value,
                   "Invalid operand size for CMP_REGI");
-
     return LafCmpOperands_EIReg<T>(Ins);
   }
 
+  //
+  // Extracts operands for CMP instructions which compare a general purpose
+  // register with an effective value (memory). (CMP_GqEqM, CMP_GdEdM,
+  // CMP_GwEwM).
+  //
+
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_GEMem(bochscpu_instr_t *Ins) {
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for LafBochsInstrReg");
+
     OpPair_t<T> Res = {};
+
+    // Extract the first operand (general purpose register).
+    GpRegs GpReg = (GpRegs)bochscpu_instr_dst(Ins);
+    Res.Op1 = LafBochsGetGpReg<T>(GpReg);
+
+    // Extract the second operand from memory.
     Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
-    uint32_t RegId = bochscpu_instr_dst(Ins);
-
-    if (!IsGpReg(RegId)) {
-      LafCompcovDebugPrint("Invalid register ID {} for CMP_GEMem\n", RegId);
+    if (!VirtReadStruct(Address, &Res.Op2)) {
       return {};
-    }
-
-    if constexpr (std::is_same<T, uint64_t>::value) {
-      // BX_CPU_C::CMP_GqEqM
-      Res.Op1 = bochscpu_get_reg64(Cpu_, (GpRegs)RegId);
-      Res.Op2 = VirtRead8(Address);
-    } else if constexpr (std::is_same<T, uint32_t>::value) {
-      // BX_CPU_C::CMP_GdEdM
-      Res.Op1 = bochscpu_get_reg32(Cpu_, (GpRegs)RegId);
-      Res.Op2 = VirtRead4(Address);
-    } else if constexpr (std::is_same<T, uint16_t>::value) {
-      // BX_CPU_C::CMP_GwEwM
-      Res.Op1 = bochscpu_get_reg16(Cpu_, (GpRegs)RegId);
-      Res.Op2 = VirtRead2(Address);
-    } else {
-      throw std::runtime_error("Invalid operand size for CMP_GEMem");
     }
 
     return Res;
   }
+
+  //
+  // Extracts operands for CMP instructions which compare a general purpose
+  // register with an effective value (register). (CMP_GqEqR, CMP_GdEdR,
+  // CMP_GwEwR).
+  //
 
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_GEReg(bochscpu_instr_t *Ins) {
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for LafBochsInstrReg");
+
     OpPair_t<T> Res = {};
-    uint32_t RegId1 = bochscpu_instr_dst(Ins);
-    uint32_t RegId2 = bochscpu_instr_src(Ins);
+    GpRegs GpReg1 = (GpRegs)bochscpu_instr_dst(Ins);
+    GpRegs GpReg2 = (GpRegs)bochscpu_instr_src(Ins);
 
-    if (!IsGpReg(RegId1)) {
-      LafCompcovDebugPrint("Invalid dst register ID {} for CMP_GEReg\n",
-                           RegId1);
-      return {};
-    }
-
-    if (!IsGpReg(RegId2)) {
-      LafCompcovDebugPrint("Invalid src register ID {} for CMP_GEReg\n",
-                           RegId2);
-      return {};
-    }
-
-    if constexpr (std::is_same<T, uint64_t>::value) {
-      // BX_CPU_C::CMP_GqEqR
-      Res.Op1 = bochscpu_get_reg64(Cpu_, (GpRegs)RegId1);
-      Res.Op2 = bochscpu_get_reg64(Cpu_, (GpRegs)RegId2);
-    } else if constexpr (std::is_same<T, uint32_t>::value) {
-      // BX_CPU_C::CMP_GdEdR
-      Res.Op1 = bochscpu_get_reg32(Cpu_, (GpRegs)RegId1);
-      Res.Op2 = bochscpu_get_reg32(Cpu_, (GpRegs)RegId2);
-    } else if constexpr (std::is_same<T, uint16_t>::value) {
-      // BX_CPU_C::CMP_GwEwR
-      Res.Op1 = bochscpu_get_reg16(Cpu_, (GpRegs)RegId1);
-      Res.Op2 = bochscpu_get_reg16(Cpu_, (GpRegs)RegId2);
-    } else {
-      throw std::runtime_error("Invalid operand size for CMP_GEReg");
-    }
+    // Extract the first operand (general purpose register).
+    Res.Op1 = LafBochsGetGpReg<T>(GpReg1);
+    // Extract the second operand (general purpose register?).
+    Res.Op2 = LafBochsGetGpReg<T>(GpReg2);
 
     return Res;
   }
 
+  //
+  // Generic operands extractor for CMP instructions which compare a general
+  // purpose register with an effective value (memory or register).
+  //
+
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_GE(bochscpu_instr_t *Ins) {
+    //
+    // Extract operands depending on the addressing mode.
+    //
+
     const InsAddressingMode_t AddrMod = BochsInsAddressingMode(Ins);
     if (AddrMod == InsAddressingMode_t::Mem) {
       return LafCmpOperands_GEMem<T>(Ins);
@@ -682,39 +728,44 @@ private:
     return {};
   }
 
+  //
+  // Extracts operands for CMP instructions which compare an effective value
+  // (memory) with a general purpose register. (CMP_EqGqM, CMP_EdGdM,
+  // CMP_EwGwM).
+  //
+
   template <typename T>
   std::optional<OpPair_t<T>> LafCmpOperands_EG(bochscpu_instr_t *Ins) {
+    static_assert(std::is_same<T, uint64_t>::value ||
+                      std::is_same<T, uint32_t>::value ||
+                      std::is_same<T, uint16_t>::value,
+                  "Invalid operand size for LafBochsInstrReg");
     OpPair_t<T> Res = {};
-    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
-    uint32_t RegId = bochscpu_instr_src(Ins);
 
-    if (!IsGpReg(RegId)) {
-      LafCompcovDebugPrint("Invalid register ID {} for CMP_EG\n", RegId);
+    // Extract the first operand - effective value from memory.
+    Gva_t Address = Gva_t(bochscpu_instr_resolve_addr(Ins));
+    if (!VirtReadStruct(Address, &Res.Op1)) {
       return {};
     }
 
-    if constexpr (std::is_same<T, uint64_t>::value) {
-      // BX_CPU_C::CMP_EqGqM
-      Res.Op1 = VirtRead8(Address);
-      Res.Op2 = bochscpu_get_reg64(Cpu_, (GpRegs)RegId);
-    } else if constexpr (std::is_same<T, uint32_t>::value) {
-      // BX_CPU_C::CMP_EdGdM
-      Res.Op1 = VirtRead4(Address);
-      Res.Op2 = bochscpu_get_reg32(Cpu_, (GpRegs)RegId);
-    } else if constexpr (std::is_same<T, uint16_t>::value) {
-      // BX_CPU_C::CMP_EwGwM
-      Res.Op1 = VirtRead2(Address);
-      Res.Op2 = bochscpu_get_reg16(Cpu_, (GpRegs)RegId);
-    } else {
-      throw std::runtime_error("Invalid operand size for CMP_E?G?!");
-    }
+    // Extract the second operand - general purpose register.
+    GpRegs GpReg = (GpRegs)bochscpu_instr_src(Ins);
+    Res.Op2 = LafBochsGetGpReg<T>(GpReg);
 
     return Res;
   }
 
-  std::optional<OpPair64_t> LafExtract64BitOperands(bochscpu_instr_t *Ins);
-  std::optional<OpPair32_t> LafExtract32BitOperands(bochscpu_instr_t *Ins);
-  std::optional<OpPair16_t> LafExtract16BitOperands(bochscpu_instr_t *Ins);
+  //
+  // Comparison operands extraction.
+  //
+
+  std::optional<OpPair64_t> LafExtractCmp64BitOperands(bochscpu_instr_t *Ins);
+  std::optional<OpPair32_t> LafExtractCmp32BitOperands(bochscpu_instr_t *Ins);
+  std::optional<OpPair16_t> LafExtractCmp16BitOperands(bochscpu_instr_t *Ins);
+
+  //
+  // LAF handlers for CMP instructions.
+  //
 
   void LafHandle64BitIntCmp(uint64_t Op1, uint64_t Op2);
   void LafHandle32BitIntCmp(uint32_t Op1, uint32_t Op2);
