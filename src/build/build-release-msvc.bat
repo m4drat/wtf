@@ -1,2 +1,2 @@
-cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
+cmake ..
 cmake --build . --config RelWithDebInfo

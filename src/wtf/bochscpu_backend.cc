@@ -428,27 +428,23 @@ void BochscpuBackend_t::LafHandle64BitIntCmp(const uint64_t Op1,
                                              const uint64_t Op2) {
   const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
-  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
-    InsertCoverageEntry(Gva_t{HashedLoc});
-  };
-
   // The same as described here:
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   if ((Op1 & 0xff00000000000000) == (Op2 & 0xff00000000000000)) {
-    UpdateCoverage(HashedLoc + 6);
+    InsertCoverageEntry(Gva_t{HashedLoc + 6});
     if ((Op1 & 0xff000000000000) == (Op2 & 0xff000000000000)) {
-      UpdateCoverage(HashedLoc + 5);
+      InsertCoverageEntry(Gva_t{HashedLoc + 5});
       if ((Op1 & 0xff0000000000) == (Op2 & 0xff0000000000)) {
-        UpdateCoverage(HashedLoc + 4);
+        InsertCoverageEntry(Gva_t{HashedLoc + 4});
         if ((Op1 & 0xff00000000) == (Op2 & 0xff00000000)) {
-          UpdateCoverage(HashedLoc + 3);
+          InsertCoverageEntry(Gva_t{HashedLoc + 3});
           if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
-            UpdateCoverage(HashedLoc + 2);
+            InsertCoverageEntry(Gva_t{HashedLoc + 2});
             if ((Op1 & 0xff0000) == (Op2 & 0xff0000)) {
-              UpdateCoverage(HashedLoc + 1);
+              InsertCoverageEntry(Gva_t{HashedLoc + 1});
               if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
-                UpdateCoverage(HashedLoc);
+                InsertCoverageEntry(Gva_t{HashedLoc});
               }
             }
           }
@@ -462,19 +458,15 @@ void BochscpuBackend_t::LafHandle32BitIntCmp(const uint32_t Op1,
                                              const uint32_t Op2) {
   const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
-  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
-    InsertCoverageEntry(Gva_t{HashedLoc});
-  };
-
   // The same as described here:
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
-    UpdateCoverage(HashedLoc + 2);
+    InsertCoverageEntry(Gva_t{HashedLoc + 2});
     if ((Op1 & 0xff0000) == (Op2 & 0xff0000)) {
-      UpdateCoverage(HashedLoc + 1);
+      InsertCoverageEntry(Gva_t{HashedLoc + 1});
       if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
-        UpdateCoverage(HashedLoc);
+        InsertCoverageEntry(Gva_t{HashedLoc});
       }
     }
   }
@@ -484,15 +476,11 @@ void BochscpuBackend_t::LafHandle16BitIntCmp(const uint16_t Op1,
                                              const uint16_t Op2) {
   const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
 
-  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
-    InsertCoverageEntry(Gva_t{HashedLoc});
-  };
-
   // The same as described here:
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
-    UpdateCoverage(HashedLoc);
+    InsertCoverageEntry(Gva_t{HashedLoc});
   }
 }
 
