@@ -175,9 +175,9 @@ int main(int argc, const char *argv[]) {
         }
 
         if (Opts.Laf && Opts.Backend != BackendType_t::Bochscpu) {
-          throw CLI::ParseError(
-              "LAF-intel split-compares is only available with the bxcpu.",
-              EXIT_FAILURE);
+          throw CLI::ParseError("LAF-intel split-compares is only "
+                                "availablewith the bxcpu backend.",
+                                EXIT_FAILURE);
         }
 
 #ifdef LINUX
@@ -333,6 +333,18 @@ int main(int argc, const char *argv[]) {
           throw CLI::ParseError(
               "Edge coverage is only available with the bxcpu backend.",
               EXIT_FAILURE);
+        }
+
+        if (Opts.Compcov && Opts.Backend != BackendType_t::Bochscpu) {
+          throw CLI::ParseError("Compare Coverage (CompCov) is only available "
+                                "with the bxcpu backend.",
+                                EXIT_FAILURE);
+        }
+
+        if (Opts.Laf && Opts.Backend != BackendType_t::Bochscpu) {
+          throw CLI::ParseError("LAF-intel split-compares is only available "
+                                "with the bxcpu backend.",
+                                EXIT_FAILURE);
         }
 
         if (Opts.Fuzz.Seed == 0) {
