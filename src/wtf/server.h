@@ -315,7 +315,7 @@ class Server_t {
   ServerStats_t Stats_;
 
   //
-  // This stores paths to files that needs their content to be sent to clientas
+  // This stores paths to files that needs their content to be sent to clients
   // as is, without mutations. This is useful to send the corpus files for
   // example. It is later sorted from the biggest size to the smallest.
   //

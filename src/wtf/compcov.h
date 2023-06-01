@@ -7,7 +7,7 @@
 // ignored.
 //
 
-constexpr uint64_t COMPCOV_MAX_CMP_LENGTH = 32;
+constexpr uint64_t COMPCOV_MAX_CMP_LENGTH = 34;
 
 //
 // Setup compcov hooks on different implementations of comparison functions:
