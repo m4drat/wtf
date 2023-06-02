@@ -15,8 +15,6 @@ from pathlib import Path
 from merge_coverage_traces import merge_coverage_files
 from typing import List
 
-MONITOR_INTERVAL = 30  # 5 minutes
-
 
 def generate_coverage_trace(
     wtf: Path, target_fuzzer: str, coverage_reports_dir: Path, inputs_dir: Path
@@ -28,6 +26,9 @@ def generate_coverage_trace(
         target_fuzzer (str): Name of the target fuzzer
         coverage_reports_dir (Path): Path where to store the generated coverage trace
         inputs_dir (Path): Path to the testcases directory
+
+    Returns:
+        bool: True if coverage traces were generated successfully, False otherwise
     """
 
     # Generate coverage trace
@@ -54,6 +55,18 @@ def generate_coverage_trace(
 def generate_coverage_traces(
     wtf: Path, target_fuzzer: str, coverage_traces_dir: Path, new_testcases: set
 ) -> List[Path]:
+    """Generate BB coverage traces for new testcases.
+
+    Args:
+        wtf (Path): Path to the WTF binary
+        target_fuzzer (str): Name of the target fuzzer
+        coverage_traces_dir (Path): Path where to store the generated coverage traces
+        new_testcases (set): Set of new testcases
+
+    Returns:
+        List[Path]: List of generated coverage traces
+    """
+
     coverage_traces: List[Path] = []
 
     if len(new_testcases) == 0:
@@ -84,6 +97,7 @@ def monitor_coverage(
     coverage_traces: Path,
     aggregated_coverage: Path,
     output: Path,
+    monitor_interval: int,
 ):
     """Monitor a fuzzing session and once in a while generate a BB coverage report.
 
@@ -93,6 +107,7 @@ def monitor_coverage(
         coverage_traces (Path): Path where to store generated coverage traces
         aggregated_coverage (Path): Path where to store the aggregated coverage trace
         output (Path): Path to the stats output file
+        monitor_interval (int): Interval in seconds between each stats update
     """
 
     aggregated_coverage.touch()
@@ -152,7 +167,7 @@ def monitor_coverage(
         if len(new_coverage_traces) > 0:
             aggregated_coverage.write_text("\n".join(merged_coverage))
 
-        time.sleep(MONITOR_INTERVAL)
+        time.sleep(monitor_interval)
 
 
 def main():
@@ -193,6 +208,12 @@ def main():
         help="Relative path to the stats output file",
         default="bb_coverage.json",
     )
+    p.add_argument(
+        "--monitor-interval",
+        type=int,
+        help="Interval in seconds between two stats updates",
+        default=5 * 60,
+    )
     args = p.parse_args()
 
     if not args.wtf.exists():
@@ -215,6 +236,7 @@ def main():
         args.coverage_traces_dir,
         args.aggregated_coverage,
         args.output,
+        args.monitor_interval,
     )
 
 
