@@ -137,17 +137,20 @@ def monitor_coverage(
 
         timestamp = time.time()
 
+        time_to_merge_coverage_start = time.time()
         if len(new_coverage_traces) > 0:
             merged_coverage = merge_coverage_files(
                 [aggregated_coverage] + new_coverage_traces, True
             )
         coverage_delta = len(merged_coverage) - stats["stats"][-1]["coverage"]
+        time_to_merge_coverage_end = time.time()
+        time_to_merge_coverage = time_to_merge_coverage_end - time_to_merge_coverage_start
 
         total_crashes = len(list(Path(".").glob("crashes/*")))
         crashes_delta = total_crashes - stats["stats"][-1]["crashes"]
 
         print(
-            f"[{time.ctime(timestamp)}] Coverage: {len(merged_coverage)} (+{coverage_delta}), Crashes: {total_crashes} (+{crashes_delta}), Testcases: {len(outputs)} +({len(new_outputs)}), Time to generate coverage: {time_to_generate_coverage:.2f}s"
+            f"[{time.ctime(timestamp)}] Coverage: {len(merged_coverage)} (+{coverage_delta}), Crashes: {total_crashes} (+{crashes_delta}), Testcases: {len(outputs)} +({len(new_outputs)}), Time to generate coverage: {time_to_generate_coverage:.2f}s, Time to merge coverage: {time_to_merge_coverage:.2f}s"
         )
 
         entry = {
@@ -212,7 +215,7 @@ def main():
         "--monitor-interval",
         type=int,
         help="Interval in seconds between two stats updates",
-        default=5 * 60,
+        default=30,
     )
     args = p.parse_args()
 
@@ -226,6 +229,13 @@ def main():
 
     # Make sure we are in the target directory
     os.chdir(args.target_dir)
+
+    # Remove previous artifacts
+    if args.aggregated_coverage.exists():
+        args.aggregated_coverage.unlink()
+
+    if args.coverage_traces_dir.exists():
+        shutil.rmtree(args.coverage_traces_dir)
 
     if not args.coverage_traces_dir.exists():
         args.coverage_traces_dir.mkdir()

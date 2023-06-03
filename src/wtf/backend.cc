@@ -38,7 +38,6 @@ bool Backend_t::VirtRead(const Gva_t Gva, uint8_t *Buffer,
 
     if (!Translate) {
       fmt::print("Translation of GVA {:#x} failed\n", CurrentGva);
-      __debugbreak();
       return false;
     }
 
