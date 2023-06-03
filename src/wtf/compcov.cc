@@ -51,17 +51,10 @@ void CompcovTrace(const uint64_t RetLoc, const T *Buffer1, const T *Buffer2,
 }
 
 //
-// Generic hook for strcmp.
+// Generic handler for strcmp-like functions.
 //
 
-void CompcovHookStrcmp(Backend_t *Backend) {
-  //
-  // Extract the arguments.
-  //
-
-  Gva_t Str1Ptr = Gva_t(Backend->GetArg(0));
-  Gva_t Str2Ptr = Gva_t(Backend->GetArg(1));
-
+void CompcovHandleStrcmp(Backend_t *Backend, Gva_t Str1Ptr, Gva_t Str2Ptr) {
   //
   // Read the strings.
   //
@@ -120,17 +113,26 @@ void CompcovHookStrcmp(Backend_t *Backend) {
 }
 
 //
-// Generic hook for strncmp.
+// Strcmp hook.
 //
 
-void CompcovHookStrncmp(Backend_t *Backend) {
+void CompcovHookStrcmp(Backend_t *Backend) {
   //
   // Extract the arguments.
   //
 
   Gva_t Str1Ptr = Gva_t(Backend->GetArg(0));
   Gva_t Str2Ptr = Gva_t(Backend->GetArg(1));
-  uint64_t MaxCount = Backend->GetArg(2);
+
+  CompcovHandleStrcmp(Backend, Str1Ptr, Str2Ptr);
+}
+
+//
+// Generic handler for strncmp-like functions.
+//
+
+void CompcovHandleStrncmp(Backend_t *Backend, Gva_t Str1Ptr, Gva_t Str2Ptr,
+                          uint64_t MaxCount) {
 
   //
   // Skip if the comparison is too long, as we don't want to clutter the
@@ -187,19 +189,29 @@ void CompcovHookStrncmp(Backend_t *Backend) {
 }
 
 //
-// Generic hook for wcscmp.
+// Strncmp hook.
 //
 
-void CompcovHookWcscmp(Backend_t *Backend) {
+void CompcovHookStrncmp(Backend_t *Backend) {
   //
   // Extract the arguments.
   //
 
-  Gva_t Wstr1Ptr = Gva_t(Backend->GetArg(0));
-  Gva_t Wstr2Ptr = Gva_t(Backend->GetArg(1));
+  Gva_t Str1Ptr = Gva_t(Backend->GetArg(0));
+  Gva_t Str2Ptr = Gva_t(Backend->GetArg(1));
+  uint64_t MaxCount = Backend->GetArg(2);
 
+  CompcovHandleStrncmp(Backend, Str1Ptr, Str2Ptr, MaxCount);
+}
+
+//
+// Generic handler for wcscmp-like functions.
+//
+
+void CompcovHandleWcscmp(Backend_t *Backend, Gva_t Wstr1Ptr, Gva_t Wstr2Ptr) {
   //
-  // Read the strings (still as uint8_t, as we don't want to deal with wchar_t)
+  // Read the strings (still as uint8_t, as we don't want to deal with
+  // wchar_t)
   //
 
   std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH> Wstr1{};
@@ -263,18 +275,26 @@ void CompcovHookWcscmp(Backend_t *Backend) {
 }
 
 //
-// Generic hook for wcsncmp.
+// Wcscmp hook.
 //
 
-void CompcovHookWcsncmp(Backend_t *Backend) {
+void CompcovHookWcscmp(Backend_t *Backend) {
   //
   // Extract the arguments.
   //
 
   Gva_t Wstr1Ptr = Gva_t(Backend->GetArg(0));
   Gva_t Wstr2Ptr = Gva_t(Backend->GetArg(1));
-  uint64_t MaxCount = Backend->GetArg(2);
 
+  CompcovHandleWcscmp(Backend, Wstr1Ptr, Wstr2Ptr);
+}
+
+//
+// Generic handler for wcsncmp-like functions.
+//
+
+void CompcovHandleWcsncmp(Backend_t *Backend, Gva_t Wstr1Ptr, Gva_t Wstr2Ptr,
+                          uint64_t MaxCount) {
   //
   // Skip if the comparison is too long, as we don't want to clutter the
   // coverage database.
@@ -336,9 +356,25 @@ void CompcovHookWcsncmp(Backend_t *Backend) {
 }
 
 //
-// Generic hook for CompareStringA. We ignore all the flags, custom locales, and
-// anything else. The only thing that matters is whether the strings are equal
-// or not.
+// Wcsncmp hook.
+//
+
+void CompcovHookWcsncmp(Backend_t *Backend) {
+  //
+  // Extract the arguments.
+  //
+
+  Gva_t Wstr1Ptr = Gva_t(Backend->GetArg(0));
+  Gva_t Wstr2Ptr = Gva_t(Backend->GetArg(1));
+  uint64_t MaxCount = Backend->GetArg(2);
+
+  CompcovHandleWcsncmp(Backend, Wstr1Ptr, Wstr2Ptr, MaxCount);
+}
+
+//
+// Generic hook for CompareStringA. We ignore all the flags, custom locales,
+// and anything else. The only thing that matters is whether the strings are
+// equal or not.
 //
 
 void CompcovHookCompareStringA(Backend_t *Backend) {
@@ -427,9 +463,9 @@ void CompcovHookCompareStringA(Backend_t *Backend) {
 }
 
 //
-// Generic hook for CompareStringW. We ignore all the flags, custom locales, and
-// anything else. The only thing that matters is whether the strings are equal
-// or not.
+// Generic hook for CompareStringW. We ignore all the flags, custom locales,
+// and anything else. The only thing that matters is whether the strings are
+// equal or not.
 //
 
 void CompcovHookCompareStringW(Backend_t *Backend) {
@@ -528,18 +564,11 @@ void CompcovHookCompareStringW(Backend_t *Backend) {
 }
 
 //
-// Generic hook for memcmp.
+// Generic handler for memcmp-like functions.
 //
 
-void CompcovHookMemcmp(Backend_t *Backend) {
-  //
-  // Extract the arguments.
-  //
-
-  Gva_t Buf1Ptr = Gva_t(Backend->GetArg(0));
-  Gva_t Buf2Ptr = Gva_t(Backend->GetArg(1));
-  uint64_t Size = Backend->GetArg(2);
-
+void CompcovHandleMemcmp(Backend_t *Backend, Gva_t Buf1Ptr, Gva_t Buf2Ptr,
+                         uint64_t Size) {
   //
   // Skip if the comparison is too long, as we don't want to clutter the
   // coverage database.
@@ -594,69 +623,19 @@ void CompcovHookMemcmp(Backend_t *Backend) {
 }
 
 //
-// Generic hook for RtlCompareMemoryUlong.
+// Memcmp hook.
 //
 
-void CompcovHookRtlCompareMemoryUlong(Backend_t *Backend) {
+void CompcovHookMemcmp(Backend_t *Backend) {
   //
   // Extract the arguments.
   //
 
-  Gva_t BufPtr = Gva_t(Backend->GetArg(0));
-  uint64_t LengthBytes = Backend->GetArg(1) * sizeof(uint32_t);
-  uint64_t Pattern = Backend->GetArg(2);
+  Gva_t Buf1Ptr = Gva_t(Backend->GetArg(0));
+  Gva_t Buf2Ptr = Gva_t(Backend->GetArg(1));
+  uint64_t Size = Backend->GetArg(2);
 
-  //
-  // Skip if the comparison is too long, as we don't want to clutter the
-  // coverage database.
-  //
-
-  if (LengthBytes >= COMPCOV_MAX_CMP_LENGTH) {
-    CompcovPrint("{}: LengthBytes >= COMPCOV_MAX_CMP_LENGTH\n", __func__);
-    return;
-  }
-
-  //
-  // Read the buffer.
-  //
-
-  std::array<uint8_t, COMPCOV_MAX_CMP_LENGTH> Buf{};
-  std::array<uint32_t, COMPCOV_MAX_CMP_LENGTH / sizeof(uint32_t)> PatternBuf{};
-  PatternBuf.fill(Pattern);
-
-  bool BufReadRes = Backend->VirtRead(BufPtr, Buf.data(), LengthBytes);
-
-  //
-  // Check whether we were able to read the buffer.
-  //
-
-  if (!BufReadRes) {
-    CompcovPrint("{}: Failed to read buffer\n", __func__);
-    return;
-  }
-
-  //
-  // As the breakpoint is set on the beginning of the function, we should be
-  // able to extract the return address by reading the first QWORD from the
-  // stack.
-  //
-
-  uint64_t RetLoc = Backend->VirtRead8(Gva_t(Backend->Rsp()));
-
-  CompcovPrint("RtlCompareMemoryUlong(\"{}\", \"{}\", {}) -> {:#x}\n",
-               BytesToHexString(Buf.data(), LengthBytes), LengthBytes, Pattern,
-               RetLoc);
-
-  //
-  // If the return location is 0, then the VirtRead8() failed.
-  //
-
-  if (RetLoc == 0) {
-    CompcovPrint("{}: RetLoc == 0\n", __func__);
-    return;
-  }
-
-  CompcovTrace(RetLoc, Buf.data(), (uint8_t *)PatternBuf.data(), LengthBytes);
+  CompcovHandleMemcmp(Backend, Buf1Ptr, Buf2Ptr, Size);
 }
 
 struct CompcovHook_t {
@@ -690,7 +669,6 @@ bool SetupCompcovHooks() {
       // reuse the same hook.
       {{"KernelBase!CompareStringEx"}, CompcovHookCompareStringW},
       {memcmp_functions, CompcovHookMemcmp},
-      // {{"ntdll!RtlCompareMemoryUlong"}, CompcovHookRtlCompareMemoryUlong},
   };
 
   bool Success = true;
@@ -699,12 +677,12 @@ bool SetupCompcovHooks() {
     for (auto &function : hook.FunctionNames) {
       CompcovPrint("Hooking comparison function {}\n", function);
 
-      // @TODO: Currently we're "ignoring" the fact that SetBreakpoint can fail
-      // (e.g. a breakpoint is already set on the function).
-      // Probably, the best way to handle this is to replace already set
-      // breakpoint with our own, but call the original BP-handler from it.
-      // Anyways, for now it's not a problem, as we're using Bochs, which uses
-      // edge/non-bp coverage.
+      // @TODO: Currently we're "ignoring" the fact that SetBreakpoint can
+      // fail (e.g. a breakpoint is already set on the function). Probably,
+      // the best way to handle this is to replace already set breakpoint with
+      // our own, but call the original BP-handler from it. Anyways, for now
+      // it's not a problem, as we're using Bochs, which uses edge/non-bp
+      // coverage.
       if (!g_Backend->SetBreakpoint(function.data(), hook.HookFunction)) {
         fmt::print("Failed to SetBreakpoint on {}\n", function);
         Success = false;
@@ -713,4 +691,116 @@ bool SetupCompcovHooks() {
   }
 
   return Success;
+}
+
+//
+// Setup compcov-strcmp hook for a custom implementation of strcmp.
+//
+
+bool SetupCustomStrcmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookStrcmp) {
+  const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
+  if (Gva == Gva_t(0)) {
+    fmt::print(
+        "Could not setup compcov strcmp hook for: {}, symbol not found!\n",
+        Symbol);
+    return false;
+  }
+
+  return SetupCustomStrcmpHook(Gva, Handler);
+}
+
+bool SetupCustomStrcmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookStrcmp) {
+  return g_Backend->SetBreakpoint(Gva, Handler);
+}
+
+//
+// Setup compcov-strncmp hook for a custom implementation of strncmp.
+//
+
+bool SetupCustomStrncmpHook(
+    const char *Symbol,
+    const BreakpointHandler_t Handler = CompcovHookStrncmp) {
+  const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
+  if (Gva == Gva_t(0)) {
+    fmt::print(
+        "Could not setup compcov strncmp hook for: {}, symbol not found!\n",
+        Symbol);
+    return false;
+  }
+
+  return SetupCustomStrncmpHook(Gva, Handler);
+}
+
+bool SetupCustomStrncmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookStrncmp) {
+  return g_Backend->SetBreakpoint(Gva, Handler);
+}
+
+//
+// Setup compcov-wcscmp hook for a custom implementation of wcscmp.
+//
+
+bool SetupCustomWcscmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookWcscmp) {
+  const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
+  if (Gva == Gva_t(0)) {
+    fmt::print(
+        "Could not setup compcov wcscmp hook for: {}, symbol not found!\n",
+        Symbol);
+    return false;
+  }
+
+  return SetupCustomWcscmpHook(Gva, Handler);
+}
+
+bool SetupCustomWcscmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookWcscmp) {
+  return g_Backend->SetBreakpoint(Gva, Handler);
+}
+
+//
+// Setup compcov-wcsncmp hook for a custom implementation of wcsncmp.
+//
+
+bool SetupCustomWcsncmpHook(
+    const char *Symbol,
+    const BreakpointHandler_t Handler = CompcovHookWcsncmp) {
+  const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
+  if (Gva == Gva_t(0)) {
+    fmt::print(
+        "Could not setup compcov wcsncmp hook for: {}, symbol not found!\n",
+        Symbol);
+    return false;
+  }
+
+  return SetupCustomWcsncmpHook(Gva, Handler);
+}
+
+bool SetupCustomWcsncmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookWcsncmp) {
+  return g_Backend->SetBreakpoint(Gva, Handler);
+}
+
+//
+// Setup compcov-memcmp hook for a custom implementation of memcmp.
+//
+
+bool SetupCustomMemcmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookMemcmp) {
+  const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
+  if (Gva == Gva_t(0)) {
+    fmt::print(
+        "Could not setup compcov memcmp hook for: {}, symbol not found!\n",
+        Symbol);
+    return false;
+  }
+
+  return SetupCustomMemcmpHook(Gva, Handler);
+}
+
+bool SetupCustomMemcmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookMemcmp) {
+  return g_Backend->SetBreakpoint(Gva, Handler);
 }
