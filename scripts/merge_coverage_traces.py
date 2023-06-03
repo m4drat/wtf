@@ -31,7 +31,7 @@ def merge_coverage_files(file_names: list, disable_progress: bool = False) -> se
 def main():
     p = argparse.ArgumentParser()
     p.add_argument(
-        "--coverage",
+        "--coverage-dir",
         type=Path,
         help="Path to directory containing coverage traces",
         required=True,
@@ -45,9 +45,10 @@ def main():
     args = p.parse_args()
 
     cov_merged = merge_coverage_files(list(args.coverage_dir.glob("*.trace")))
+    cov_lines = map(lambda cov_entry: cov_entry + "\n", cov_merged)
 
     with open(args.output, "w", encoding="ascii") as merged:
-        merged.writelines(cov_merged)
+        merged.writelines(cov_lines)
 
 
 if __name__ == "__main__":
