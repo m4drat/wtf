@@ -22,6 +22,10 @@ struct BochscpuRunStats_t {
   uint64_t DirtyGpas = 0;
   uint64_t NumberEdges = 0;
   uint64_t NumberUniqueEdges = 0;
+  uint64_t NumberLafCmpHits = 0;
+  uint64_t NumberLafUniqueCmpHits = 0;
+  uint64_t NumberCompcovHits = 0;
+  uint64_t NumberCompcovUniqueHits = 0;
 
   void Print() const {
     fmt::print("--------------------------------------------------\n");
@@ -35,6 +39,12 @@ struct BochscpuRunStats_t {
                BytesToHuman(NumberMemoryAccesses));
     fmt::print("       Edges executed: {} ({} unique)\n",
                NumberToHuman(NumberEdges), NumberToHuman(NumberUniqueEdges));
+    fmt::print("      LAF hits: {} ({} unique)\n",
+               NumberToHuman(NumberLafCmpHits),
+               NumberToHuman(NumberLafUniqueCmpHits));
+    fmt::print("  CompCov hits: {} ({} unique)\n",
+               NumberToHuman(NumberCompcovHits),
+               NumberToHuman(NumberCompcovUniqueHits));
   }
 
   void Reset() {
@@ -42,6 +52,8 @@ struct BochscpuRunStats_t {
     NumberMemoryAccesses = 0;
     NumberEdges = 0;
     NumberUniqueEdges = 0;
+    NumberLafUniqueCmpHits = 0;
+    NumberCompcovUniqueHits = 0;
   }
 };
 
@@ -235,6 +247,8 @@ public:
   //
 
   void PrintRunStats() override;
+
+  void IncCompcovUniqueHits();
 
   //
   // Non-determinism.

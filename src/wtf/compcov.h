@@ -14,7 +14,7 @@ constexpr uint64_t COMPCOV_MAX_CMP_LENGTH = 34;
 // ntdll!strcmp, ucrtbase!strcmp, etc.
 //
 
-bool SetupCompcovHooks();
+bool CompcovSetupHooks();
 
 //
 // Generic compcov handlers for different comparison functions. They might be
@@ -36,38 +36,53 @@ void CompcovHandleMemcmp(Backend_t *Backend, Gva_t Buf1Ptr, Gva_t Buf2Ptr,
 // Setup compcov-strcmp hook for a custom implementation of strcmp.
 //
 
-bool SetupCustomStrcmpHook(const char *Symbol,
-                           const BreakpointHandler_t Handler);
-bool SetupCustomStrcmpHook(const Gva_t Gva, const BreakpointHandler_t Handler);
+void CompcovHookStrcmp(Backend_t *Backend);
+
+bool CompcovSetupCustomStrcmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookStrcmp);
+bool CompcovSetupCustomStrcmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookStrcmp);
 
 //
 // Setup compcov-strncmp hook for a custom implementation of strncmp.
 //
 
-bool SetupCustomStrncmpHook(const char *Symbol,
-                            const BreakpointHandler_t Handler);
-bool SetupCustomStrncmpHook(const Gva_t Gva, const BreakpointHandler_t Handler);
+void CompcovHookStrncmp(Backend_t *Backend);
+
+bool CompcovSetupCustomStrncmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookStrncmp);
+bool CompcovSetupCustomStrncmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookStrncmp);
 
 //
 // Setup compcov-wcscmp hook for a custom implementation of wcscmp.
 //
 
-bool SetupCustomWcscmpHook(const char *Symbol,
-                           const BreakpointHandler_t Handler);
-bool SetupCustomWcscmpHook(const Gva_t Gva, const BreakpointHandler_t Handler);
+void CompcovHookWcscmp(Backend_t *Backend);
+
+bool CompcovSetupCustomWcscmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookWcscmp);
+bool CompcovSetupCustomWcscmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookWcscmp);
 
 //
 // Setup compcov-wcsncmp hook for a custom implementation of wcsncmp.
 //
 
-bool SetupCustomWcsncmpHook(const char *Symbol,
-                            const BreakpointHandler_t Handler);
-bool SetupCustomWcsncmpHook(const Gva_t Gva, const BreakpointHandler_t Handler);
+void CompcovHookWcsncmp(Backend_t *Backend);
+
+bool CompcovSetupCustomWcsncmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookWcsncmp);
+bool CompcovSetupCustomWcsncmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookWcsncmp);
 
 //
 // Setup compcov-memcmp hook for a custom implementation of memcmp.
 //
 
-bool SetupCustomMemcmpHook(const char *Symbol,
-                           const BreakpointHandler_t Handler);
-bool SetupCustomMemcmpHook(const Gva_t Gva, const BreakpointHandler_t Handler);
+void CompcovHookMemcmp(Backend_t *Backend);
+
+bool CompcovSetupCustomMemcmpHook(
+    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookMemcmp);
+bool CompcovSetupCustomMemcmpHook(
+    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookMemcmp);

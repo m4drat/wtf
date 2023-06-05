@@ -321,7 +321,7 @@ bool BochscpuBackend_t::Initialize(const Options_t &Opts,
 
   // Enable compcov for various compare functions.
   if (Opts.Compcov) {
-    if (!SetupCompcovHooks()) {
+    if (!CompcovSetupHooks()) {
       fmt::print("/!\\ Failed to setup some compcov hooks\n");
     }
   }
@@ -417,6 +417,9 @@ BochscpuBackend_t::Run(const uint8_t *Buffer, const uint64_t BufferSize) {
   RunStats_.AggregatedCodeCoverage = AggregatedCodeCoverage_.size();
   RunStats_.DirtyGpas = DirtyGpas_.size();
 
+  RunStats_.NumberLafCmpHits += RunStats_.NumberLafUniqueCmpHits;
+  RunStats_.NumberCompcovHits += RunStats_.NumberCompcovUniqueHits;
+
   //
   // Return to the user how the testcase exited.
   //
@@ -426,25 +429,30 @@ BochscpuBackend_t::Run(const uint8_t *Buffer, const uint64_t BufferSize) {
 
 void BochscpuBackend_t::LafHandle64BitIntCmp(const uint64_t Op1,
                                              const uint64_t Op2) {
-  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
-
   // The same as described here:
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
+  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+  auto UpdateCoverage = [this](const uint64_t HashedLoc) {
+    if (InsertCoverageEntry(Gva_t{HashedLoc})) {
+      RunStats_.NumberLafUniqueCmpHits++;
+    }
+  };
+
   if ((Op1 & 0xff00000000000000) == (Op2 & 0xff00000000000000)) {
-    InsertCoverageEntry(Gva_t{HashedLoc + 6});
+    UpdateCoverage(HashedLoc + 6);
     if ((Op1 & 0xff000000000000) == (Op2 & 0xff000000000000)) {
-      InsertCoverageEntry(Gva_t{HashedLoc + 5});
+      UpdateCoverage(HashedLoc + 5);
       if ((Op1 & 0xff0000000000) == (Op2 & 0xff0000000000)) {
-        InsertCoverageEntry(Gva_t{HashedLoc + 4});
+        UpdateCoverage(HashedLoc + 4);
         if ((Op1 & 0xff00000000) == (Op2 & 0xff00000000)) {
-          InsertCoverageEntry(Gva_t{HashedLoc + 3});
+          UpdateCoverage(HashedLoc + 3);
           if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
-            InsertCoverageEntry(Gva_t{HashedLoc + 2});
+            UpdateCoverage(HashedLoc + 2);
             if ((Op1 & 0xff0000) == (Op2 & 0xff0000)) {
-              InsertCoverageEntry(Gva_t{HashedLoc + 1});
+              UpdateCoverage(HashedLoc + 1);
               if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
-                InsertCoverageEntry(Gva_t{HashedLoc});
+                UpdateCoverage(HashedLoc);
               }
             }
           }
@@ -456,17 +464,22 @@ void BochscpuBackend_t::LafHandle64BitIntCmp(const uint64_t Op1,
 
 void BochscpuBackend_t::LafHandle32BitIntCmp(const uint32_t Op1,
                                              const uint32_t Op2) {
-  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
-
   // The same as described here:
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
+  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+  auto UpdateCoverage = [this](const uint64_t HashedLoc) {
+    if (InsertCoverageEntry(Gva_t{HashedLoc})) {
+      RunStats_.NumberLafUniqueCmpHits++;
+    }
+  };
+
   if ((Op1 & 0xff000000) == (Op2 & 0xff000000)) {
-    InsertCoverageEntry(Gva_t{HashedLoc + 2});
+    UpdateCoverage(HashedLoc + 2);
     if ((Op1 & 0xff0000) == (Op2 & 0xff0000)) {
-      InsertCoverageEntry(Gva_t{HashedLoc + 1});
+      UpdateCoverage(HashedLoc + 1);
       if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
-        InsertCoverageEntry(Gva_t{HashedLoc});
+        UpdateCoverage(HashedLoc);
       }
     }
   }
@@ -474,13 +487,18 @@ void BochscpuBackend_t::LafHandle32BitIntCmp(const uint32_t Op1,
 
 void BochscpuBackend_t::LafHandle16BitIntCmp(const uint16_t Op1,
                                              const uint16_t Op2) {
-  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
-
   // The same as described here:
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
+  const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
+  auto UpdateCoverage = [this](const uint64_t HashedLoc) {
+    if (InsertCoverageEntry(Gva_t{HashedLoc})) {
+      RunStats_.NumberLafUniqueCmpHits++;
+    }
+  };
+
   if ((Op1 & 0xff00) == (Op2 & 0xff00)) {
-    InsertCoverageEntry(Gva_t{HashedLoc});
+    UpdateCoverage(HashedLoc);
   }
 }
 
@@ -1292,6 +1310,10 @@ bool BochscpuBackend_t::InsertCoverageEntry(const Gva_t Gva) {
 }
 
 void BochscpuBackend_t::PrintRunStats() { RunStats_.Print(); }
+
+void BochscpuBackend_t::IncCompcovUniqueHits() {
+  RunStats_.NumberCompcovUniqueHits++;
+}
 
 const uint8_t *BochscpuBackend_t::GetTestcaseBuffer() {
   return TestcaseBuffer_;

@@ -44,9 +44,17 @@ uint64_t CompcovStrlen2(const T *s1, const T *s2, uint64_t max_length) {
 template <class T>
 void CompcovTrace(const uint64_t RetLoc, const T *Buffer1, const T *Buffer2,
                   const uint64_t Length) {
+  BochscpuBackend_t *BochsBackend =
+      dynamic_cast<BochscpuBackend_t *>(g_Backend);
+  if (!BochsBackend) {
+    throw std::runtime_error("CompcovTrace: Unsupported backend, only BochsCPU "
+                             "backend is supported");
+  }
+
   uint64_t HashedLoc = SplitMix64(RetLoc);
   for (uint32_t i = 0; i < Length && Buffer1[i] == Buffer2[i]; i++) {
-    g_Backend->InsertCoverageEntry(Gva_t(HashedLoc + i));
+    if (BochsBackend->InsertCoverageEntry(Gva_t(HashedLoc + i)))
+      BochsBackend->IncCompcovUniqueHits();
   }
 }
 
@@ -643,7 +651,7 @@ struct CompcovHook_t {
   void (*HookFunction)(Backend_t *);
 };
 
-bool SetupCompcovHooks() {
+bool CompcovSetupHooks() {
   const std::vector<std::string_view> strcmp_functions = {"ntdll!strcmp",
                                                           "ucrtbase!strcmp"};
   const std::vector<std::string_view> strncmp_functions = {"ntdll!strncmp",
@@ -697,8 +705,8 @@ bool SetupCompcovHooks() {
 // Setup compcov-strcmp hook for a custom implementation of strcmp.
 //
 
-bool SetupCustomStrcmpHook(
-    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookStrcmp) {
+bool CompcovSetupCustomStrcmpHook(const char *Symbol,
+                                  const BreakpointHandler_t Handler) {
   const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
   if (Gva == Gva_t(0)) {
     fmt::print(
@@ -707,11 +715,11 @@ bool SetupCustomStrcmpHook(
     return false;
   }
 
-  return SetupCustomStrcmpHook(Gva, Handler);
+  return CompcovSetupCustomStrcmpHook(Gva, Handler);
 }
 
-bool SetupCustomStrcmpHook(
-    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookStrcmp) {
+bool CompcovSetupCustomStrcmpHook(const Gva_t Gva,
+                                  const BreakpointHandler_t Handler) {
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -719,9 +727,8 @@ bool SetupCustomStrcmpHook(
 // Setup compcov-strncmp hook for a custom implementation of strncmp.
 //
 
-bool SetupCustomStrncmpHook(
-    const char *Symbol,
-    const BreakpointHandler_t Handler = CompcovHookStrncmp) {
+bool CompcovSetupCustomStrncmpHook(const char *Symbol,
+                                   const BreakpointHandler_t Handler) {
   const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
   if (Gva == Gva_t(0)) {
     fmt::print(
@@ -730,11 +737,11 @@ bool SetupCustomStrncmpHook(
     return false;
   }
 
-  return SetupCustomStrncmpHook(Gva, Handler);
+  return CompcovSetupCustomStrncmpHook(Gva, Handler);
 }
 
-bool SetupCustomStrncmpHook(
-    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookStrncmp) {
+bool CompcovSetupCustomStrncmpHook(const Gva_t Gva,
+                                   const BreakpointHandler_t Handler) {
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -742,8 +749,8 @@ bool SetupCustomStrncmpHook(
 // Setup compcov-wcscmp hook for a custom implementation of wcscmp.
 //
 
-bool SetupCustomWcscmpHook(
-    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookWcscmp) {
+bool CompcovSetupCustomWcscmpHook(const char *Symbol,
+                                  const BreakpointHandler_t Handler) {
   const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
   if (Gva == Gva_t(0)) {
     fmt::print(
@@ -752,11 +759,11 @@ bool SetupCustomWcscmpHook(
     return false;
   }
 
-  return SetupCustomWcscmpHook(Gva, Handler);
+  return CompcovSetupCustomWcscmpHook(Gva, Handler);
 }
 
-bool SetupCustomWcscmpHook(
-    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookWcscmp) {
+bool CompcovSetupCustomWcscmpHook(const Gva_t Gva,
+                                  const BreakpointHandler_t Handler) {
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -764,9 +771,8 @@ bool SetupCustomWcscmpHook(
 // Setup compcov-wcsncmp hook for a custom implementation of wcsncmp.
 //
 
-bool SetupCustomWcsncmpHook(
-    const char *Symbol,
-    const BreakpointHandler_t Handler = CompcovHookWcsncmp) {
+bool CompcovSetupCustomWcsncmpHook(const char *Symbol,
+                                   const BreakpointHandler_t Handler) {
   const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
   if (Gva == Gva_t(0)) {
     fmt::print(
@@ -775,11 +781,11 @@ bool SetupCustomWcsncmpHook(
     return false;
   }
 
-  return SetupCustomWcsncmpHook(Gva, Handler);
+  return CompcovSetupCustomWcsncmpHook(Gva, Handler);
 }
 
-bool SetupCustomWcsncmpHook(
-    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookWcsncmp) {
+bool CompcovSetupCustomWcsncmpHook(const Gva_t Gva,
+                                   const BreakpointHandler_t Handler) {
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -787,8 +793,8 @@ bool SetupCustomWcsncmpHook(
 // Setup compcov-memcmp hook for a custom implementation of memcmp.
 //
 
-bool SetupCustomMemcmpHook(
-    const char *Symbol, const BreakpointHandler_t Handler = CompcovHookMemcmp) {
+bool CompcovSetupCustomMemcmpHook(const char *Symbol,
+                                  const BreakpointHandler_t Handler) {
   const Gva_t Gva = Gva_t(g_Dbg.GetSymbol(Symbol));
   if (Gva == Gva_t(0)) {
     fmt::print(
@@ -797,10 +803,10 @@ bool SetupCustomMemcmpHook(
     return false;
   }
 
-  return SetupCustomMemcmpHook(Gva, Handler);
+  return CompcovSetupCustomMemcmpHook(Gva, Handler);
 }
 
-bool SetupCustomMemcmpHook(
-    const Gva_t Gva, const BreakpointHandler_t Handler = CompcovHookMemcmp) {
+bool CompcovSetupCustomMemcmpHook(const Gva_t Gva,
+                                  const BreakpointHandler_t Handler) {
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
