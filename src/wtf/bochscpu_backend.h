@@ -39,10 +39,9 @@ struct BochscpuRunStats_t {
                BytesToHuman(NumberMemoryAccesses));
     fmt::print("       Edges executed: {} ({} unique)\n",
                NumberToHuman(NumberEdges), NumberToHuman(NumberUniqueEdges));
-    fmt::print("      LAF hits: {} ({} unique)\n",
-               NumberToHuman(NumberLafCmpHits),
+    fmt::print("      LAF hits: {} ({} new)\n", NumberToHuman(NumberLafCmpHits),
                NumberToHuman(NumberLafUniqueCmpHits));
-    fmt::print("  CompCov hits: {} ({} unique)\n",
+    fmt::print("  CompCov hits: {} ({} new)\n",
                NumberToHuman(NumberCompcovHits),
                NumberToHuman(NumberCompcovUniqueHits));
   }

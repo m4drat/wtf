@@ -720,6 +720,14 @@ bool CompcovSetupCustomStrcmpHook(const char *Symbol,
 
 bool CompcovSetupCustomStrcmpHook(const Gva_t Gva,
                                   const BreakpointHandler_t Handler) {
+  BochscpuBackend_t *BochsBackend =
+      dynamic_cast<BochscpuBackend_t *>(g_Backend);
+  if (!BochsBackend) {
+    fmt::print("CompcovSetupCustomHook: Unsupported backend, only BochsCPU "
+               "backend is supported\n");
+    return false;
+  }
+
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -742,6 +750,14 @@ bool CompcovSetupCustomStrncmpHook(const char *Symbol,
 
 bool CompcovSetupCustomStrncmpHook(const Gva_t Gva,
                                    const BreakpointHandler_t Handler) {
+  BochscpuBackend_t *BochsBackend =
+      dynamic_cast<BochscpuBackend_t *>(g_Backend);
+  if (!BochsBackend) {
+    fmt::print("CompcovSetupCustomHook: Unsupported backend, only BochsCPU "
+               "backend is supported\n");
+    return false;
+  }
+
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -764,6 +780,14 @@ bool CompcovSetupCustomWcscmpHook(const char *Symbol,
 
 bool CompcovSetupCustomWcscmpHook(const Gva_t Gva,
                                   const BreakpointHandler_t Handler) {
+  BochscpuBackend_t *BochsBackend =
+      dynamic_cast<BochscpuBackend_t *>(g_Backend);
+  if (!BochsBackend) {
+    fmt::print("CompcovSetupCustomHook: Unsupported backend, only BochsCPU "
+               "backend is supported\n");
+    return false;
+  }
+
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -786,6 +810,14 @@ bool CompcovSetupCustomWcsncmpHook(const char *Symbol,
 
 bool CompcovSetupCustomWcsncmpHook(const Gva_t Gva,
                                    const BreakpointHandler_t Handler) {
+  BochscpuBackend_t *BochsBackend =
+      dynamic_cast<BochscpuBackend_t *>(g_Backend);
+  if (!BochsBackend) {
+    fmt::print("CompcovSetupCustomHook: Unsupported backend, only BochsCPU "
+               "backend is supported\n");
+    return false;
+  }
+
   return g_Backend->SetBreakpoint(Gva, Handler);
 }
 
@@ -808,5 +840,13 @@ bool CompcovSetupCustomMemcmpHook(const char *Symbol,
 
 bool CompcovSetupCustomMemcmpHook(const Gva_t Gva,
                                   const BreakpointHandler_t Handler) {
+  BochscpuBackend_t *BochsBackend =
+      dynamic_cast<BochscpuBackend_t *>(g_Backend);
+  if (!BochsBackend) {
+    fmt::print("CompcovSetupCustomHook: Unsupported backend, only BochsCPU "
+               "backend is supported\n");
+    return false;
+  }
+
   return g_Backend->SetBreakpoint(Gva, Handler);
 }

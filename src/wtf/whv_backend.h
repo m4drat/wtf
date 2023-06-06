@@ -55,7 +55,7 @@ struct WhvBreakpoint_t {
 };
 
 //
-// This is the WHV backent. It runs test cases inside an Hyper-V backed VM.
+// This is the WHV backend. It runs test cases inside an Hyper-V backed VM.
 //
 
 class WhvBackend_t : public Backend_t {
