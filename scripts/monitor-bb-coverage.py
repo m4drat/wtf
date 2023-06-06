@@ -124,53 +124,62 @@ def monitor_coverage(
         ]
     }
 
-    while True:
-        outputs = set(Path(".").glob("outputs/*"))
-        new_outputs = outputs - processed_outputs
+    try:
+        while True:
+            outputs = set(Path(".").glob("outputs/*"))
+            new_outputs = outputs - processed_outputs
 
-        time_to_generate_coverage_start = time.time()
-        new_coverage_traces = generate_coverage_traces(
-            wtf, target_fuzzer, coverage_traces, new_outputs
-        )
-        time_to_generate_coverage_end = time.time()
-        time_to_generate_coverage = time_to_generate_coverage_end - time_to_generate_coverage_start
-
-        timestamp = time.time()
-
-        time_to_merge_coverage_start = time.time()
-        if len(new_coverage_traces) > 0:
-            merged_coverage = merge_coverage_files(
-                [aggregated_coverage] + new_coverage_traces, True
+            time_to_generate_coverage_start = time.time()
+            new_coverage_traces = generate_coverage_traces(
+                wtf, target_fuzzer, coverage_traces, new_outputs
             )
-        coverage_delta = len(merged_coverage) - stats["stats"][-1]["coverage"]
-        time_to_merge_coverage_end = time.time()
-        time_to_merge_coverage = time_to_merge_coverage_end - time_to_merge_coverage_start
+            time_to_generate_coverage_end = time.time()
+            time_to_generate_coverage = (
+                time_to_generate_coverage_end - time_to_generate_coverage_start
+            )
 
-        total_crashes = len(list(Path(".").glob("crashes/*")))
-        crashes_delta = total_crashes - stats["stats"][-1]["crashes"]
+            timestamp = time.time()
 
-        print(
-            f"[{time.ctime(timestamp)}] Coverage: {len(merged_coverage)} (+{coverage_delta}), Crashes: {total_crashes} (+{crashes_delta}), Testcases: {len(outputs)} +({len(new_outputs)}), Time to generate coverage: {time_to_generate_coverage:.2f}s, Time to merge coverage: {time_to_merge_coverage:.2f}s"
-        )
+            time_to_merge_coverage_start = time.time()
+            if len(new_coverage_traces) > 0:
+                merged_coverage = merge_coverage_files(
+                    [aggregated_coverage] + new_coverage_traces, True
+                )
+            coverage_delta = len(merged_coverage) - stats["stats"][-1]["coverage"]
+            time_to_merge_coverage_end = time.time()
+            time_to_merge_coverage = time_to_merge_coverage_end - time_to_merge_coverage_start
 
-        entry = {
-            "timestamp": timestamp,
-            "coverage": len(merged_coverage),
-            "crashes": total_crashes,
-        }
-        stats["stats"].append(entry)
+            total_crashes = len(list(Path(".").glob("crashes/*")))
+            crashes_delta = total_crashes - stats["stats"][-1]["crashes"]
 
+            print(
+                f"[{time.ctime(timestamp)}] Coverage: {len(merged_coverage)} (+{coverage_delta}), Crashes: {total_crashes} (+{crashes_delta}), Testcases: {len(outputs)} +({len(new_outputs)}), Time to generate coverage: {time_to_generate_coverage:.2f}s, Time to merge coverage: {time_to_merge_coverage:.2f}s"
+            )
+
+            entry = {
+                "timestamp": timestamp,
+                "coverage": len(merged_coverage),
+                "crashes": total_crashes,
+            }
+            stats["stats"].append(entry)
+
+            with open(output, "w", encoding="ascii") as stats_file:
+                json.dump(stats, stats_file, indent=4)
+
+            # Update set of processed outputs
+            processed_outputs.update(new_outputs)
+
+            # Update aggregated coverage
+            if len(new_coverage_traces) > 0:
+                aggregated_coverage.write_text("\n".join(merged_coverage))
+
+            time.sleep(monitor_interval)
+    except KeyboardInterrupt:
+        # Finalize stats
         with open(output, "w", encoding="ascii") as stats_file:
             json.dump(stats, stats_file, indent=4)
 
-        # Update set of processed outputs
-        processed_outputs.update(new_outputs)
-
-        # Update aggregated coverage
-        if len(new_coverage_traces) > 0:
-            aggregated_coverage.write_text("\n".join(merged_coverage))
-
-        time.sleep(monitor_interval)
+        print("Monitoring stopped!")
 
 
 def main():
@@ -219,10 +228,6 @@ def main():
     )
     args = p.parse_args()
 
-    if not args.wtf.exists():
-        print(f"WTF binary {args.wtf} does not exist")
-        exit(1)
-
     if not args.target_dir.exists():
         print(f"Target directory {args.target_dir} does not exist")
         exit(1)
@@ -235,7 +240,7 @@ def main():
         args.aggregated_coverage.unlink()
 
     if args.coverage_traces_dir.exists():
-        shutil.rmtree(args.coverage_traces_dir)
+        shutil.rmtree(args.coverage_traces_dir, ignore_errors=True)
 
     if not args.coverage_traces_dir.exists():
         args.coverage_traces_dir.mkdir()
