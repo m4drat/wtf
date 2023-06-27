@@ -8,6 +8,8 @@
 #include <string_view>
 #include <variant>
 
+#include "gxa.h"
+
 //
 // warning C4201: nonstandard extension used: nameless struct/union
 //
@@ -1187,6 +1189,17 @@ enum class TraceType_t {
 
 enum class BackendType_t { Bochscpu, Whv, Kvm };
 
+//
+// LAF/Compcov supported modes.
+//
+
+enum class LafCompcovOptions_t {
+  Disabled,
+  OnlyUser,
+  OnlyKernel,
+  KernelAndUser
+};
+
 struct FuzzOptions_t {
 
   //
@@ -1375,7 +1388,13 @@ struct Options_t {
   // Use LAF split-compares (only with bxcpu).
   //
 
-  bool Laf = false;
+  LafCompcovOptions_t Laf = LafCompcovOptions_t::Disabled;
+
+  //
+  // LAF allowed ranges.
+  //
+
+  std::vector<std::pair<Gva_t, Gva_t>> LafAllowedRanges;
 
   //
   // Options for the subcommand 'run'.

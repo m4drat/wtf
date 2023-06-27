@@ -315,9 +315,8 @@ bool BochscpuBackend_t::Initialize(const Options_t &Opts,
   }
 
   // @TODO: Maybe it's better to enable laf using a second set of hooks?
-  if (Opts.Laf) {
-    LafEnabled_ = true;
-  }
+  LafMode_ = Opts.Laf;
+  LafAllowedRanges_ = Opts.LafAllowedRanges;
 
   // Enable compcov for various compare functions.
   if (Opts.Compcov) {
@@ -433,7 +432,7 @@ void BochscpuBackend_t::LafHandle64BitIntCmp(const uint64_t Op1,
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
-  auto UpdateCoverage = [this](const uint64_t HashedLoc) {
+  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
     if (InsertCoverageEntry(Gva_t{HashedLoc})) {
       RunStats_.NumberLafUniqueCmpHits++;
     }
@@ -468,7 +467,7 @@ void BochscpuBackend_t::LafHandle32BitIntCmp(const uint32_t Op1,
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
-  auto UpdateCoverage = [this](const uint64_t HashedLoc) {
+  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
     if (InsertCoverageEntry(Gva_t{HashedLoc})) {
       RunStats_.NumberLafUniqueCmpHits++;
     }
@@ -491,7 +490,7 @@ void BochscpuBackend_t::LafHandle16BitIntCmp(const uint16_t Op1,
   // https://andreafioraldi.github.io/articles/2019/07/20/aflpp-qemu-compcov.html
 
   const uint64_t HashedLoc = SplitMix64(bochscpu_cpu_rip(Cpu_));
-  auto UpdateCoverage = [this](const uint64_t HashedLoc) {
+  const auto UpdateCoverage = [this](const uint64_t HashedLoc) {
     if (InsertCoverageEntry(Gva_t{HashedLoc})) {
       RunStats_.NumberLafUniqueCmpHits++;
     }
@@ -679,10 +678,27 @@ BochscpuBackend_t::LafExtract16BitOperands(bochscpu_instr_t *Ins) {
 }
 
 void BochscpuBackend_t::LafSplitCompares(bochscpu_instr_t *Ins) {
-  //
-  // Try to split a given instruction, assuming it is a CMP/SUB instruction.
-  //
-  LafTrySplitIntCmpSub(Ins);
+  // Enable only for user-mode/kernel-mode.
+  if (!(LafMode_ == LafCompcovOptions_t::OnlyUser && BochsCpuIsUserMode() ||
+        LafMode_ == LafCompcovOptions_t::OnlyKernel && BochsCpuIsKernelMode() ||
+        LafMode_ == LafCompcovOptions_t::KernelAndUser)) {
+    return;
+  }
+
+  const Gva_t Rip = Gva_t{bochscpu_cpu_rip(Cpu_)};
+  const auto CheckInRange = [Rip](const auto &Range) {
+    return Range.first < Rip && Rip < Range.second;
+  };
+
+  // Check if address range is allowed
+  if (LafAllowedRanges_.empty() ||
+      std::find_if(LafAllowedRanges_.begin(), LafAllowedRanges_.end(),
+                   CheckInRange) != LafAllowedRanges_.end()) {
+    //
+    // Try to split a given instruction, assuming it is a CMP/SUB instruction.
+    //
+    LafTrySplitIntCmpSub(Ins);
+  }
 
   return;
 }
@@ -787,7 +803,7 @@ __declspec(safebuffers)
   // If LAF is enabled, try to split comparison instructions (cmp, sub, ...)
   //
 
-  if (LafEnabled_) {
+  if (LafMode_ != LafCompcovOptions_t::Disabled) {
     LafSplitCompares((bochscpu_instr_t *)Ins);
   }
 

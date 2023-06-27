@@ -54,6 +54,12 @@ void Hexdump(const uint64_t Address, const span_u8 Buffer);
 void Hexdump(const uint64_t Address, const void *Buffer, size_t Len);
 
 //
+// Parse LAF allowed ranges cmdline argument.
+//
+
+std::vector<std::pair<Gva_t, Gva_t>>
+ParseLafAllowedRanges(const std::string &input);
+//
 // Populate a bochscpu_state_t from a JSON file.
 //
 

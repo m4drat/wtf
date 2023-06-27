@@ -148,7 +148,13 @@ class BochscpuBackend_t : public Backend_t {
   // Enable/disable the LAF.
   //
 
-  bool LafEnabled_ = false;
+  LafCompcovOptions_t LafMode_ = LafCompcovOptions_t::Disabled;
+
+  //
+  // Allowed ranges for the LAF.
+  //
+
+  std::vector<std::pair<Gva_t, Gva_t>> LafAllowedRanges_;
 
   //
   // The hooks we define onto the Cpu.
@@ -542,6 +548,27 @@ private:
     return "<unknown>";
   }
 
+  /**
+   * Extracts current privilege level from the CS register.
+   * @see Vol3A[5.5(PRIVILEGE LEVELS)] (reference)
+   */
+
+  inline uint64_t BochsCpuPrivLevel() {
+    Seg cs;
+    bochscpu_cpu_cs(Cpu_, &cs);
+    return cs.selector & 0b11;
+  }
+
+  inline bool BochsCpuIsUserMode() {
+    const uint16_t privlevel = BochsCpuPrivLevel();
+    return privlevel == 3;
+  }
+
+  inline bool BochsCpuIsKernelMode() {
+    const uint16_t privlevel = BochsCpuPrivLevel();
+    return privlevel == 0;
+  }
+
   //
   // Operand pair for CMP instructions.
   //
@@ -594,17 +621,18 @@ private:
 
       if (!Operands.has_value()) {
         LafCompcovDebugPrint(
-            "Extraction failed for instruction : {:#18x} {:46} "
+            "Extraction failed for instruction : (EL{}) {:#18x} {:46} "
             "-> {}{}(XXX, XXX)\n",
-            Rip, DisasmString, CmpInstrType, AddressingMode);
+            BochsCpuPrivLevel(), Rip, DisasmString, CmpInstrType,
+            AddressingMode);
         return;
       }
 
-      LafCompcovDebugPrint("Extracted operands for instruction: {:#18x} "
+      LafCompcovDebugPrint("Extracted operands for instruction: (EL{}) {:#18x} "
                            "{:46} "
                            "-> {}{}({:#x}, {:#x})\n",
-                           Rip, DisasmString, CmpInstrType, AddressingMode,
-                           Operands->Op1, Operands->Op2);
+                           BochsCpuPrivLevel(), Rip, DisasmString, CmpInstrType,
+                           AddressingMode, Operands->Op1, Operands->Op2);
     }
   }
 

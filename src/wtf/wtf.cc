@@ -174,7 +174,8 @@ int main(int argc, const char *argv[]) {
                                 EXIT_FAILURE);
         }
 
-        if (Opts.Laf && Opts.Backend != BackendType_t::Bochscpu) {
+        if (Opts.Laf != LafCompcovOptions_t::Disabled &&
+            Opts.Backend != BackendType_t::Bochscpu) {
           throw CLI::ParseError("LAF-intel split-compares is only "
                                 "availablewith the bxcpu backend.",
                                 EXIT_FAILURE);
@@ -236,6 +237,14 @@ int main(int argc, const char *argv[]) {
 #endif
   };
 
+  const std::unordered_map<std::string, LafCompcovOptions_t> LafCompcovModeMap =
+      {
+          {"disabled", LafCompcovOptions_t::Disabled},
+          {"user", LafCompcovOptions_t::OnlyUser},
+          {"kernel", LafCompcovOptions_t::OnlyKernel},
+          {"kernel-user", LafCompcovOptions_t::KernelAndUser},
+      };
+
   RunCmd->add_option("--name", Opts.TargetName, "Target name")
       ->description("Name of the target fuzzer.")
       ->required();
@@ -277,8 +286,18 @@ int main(int argc, const char *argv[]) {
           "Turn on compare coverage for memcmp, strcmp, ... (bxcpu only).");
 
   RunCmd->add_flag("--laf", Opts.Laf, "LAF split-compares")
-      ->default_val(false)
+      ->default_val(LafCompcovOptions_t::Disabled)
+      ->transform(CLI::CheckedTransformer(LafCompcovModeMap, CLI::ignore_case))
       ->description("Turn on LAF split-compares coverage (bxcpu only).");
+
+  std::string LafAllowedRangesStr;
+  RunCmd
+      ->add_flag("--laf-allowed-ranges", LafAllowedRangesStr,
+                 "LAF allowed ranges")
+      ->description(
+          "Specify allowed memory ranges to perform LAF comparison splitting. "
+          "Format: start1-end1,start2-end2,...");
+  Opts.LafAllowedRanges = ParseLafAllowedRanges(LafAllowedRangesStr);
 
   RunCmd->add_option("--runs", Opts.Run.Runs, "Runs")
       ->description("Number of mutations done.")
@@ -341,7 +360,8 @@ int main(int argc, const char *argv[]) {
                                 EXIT_FAILURE);
         }
 
-        if (Opts.Laf && Opts.Backend != BackendType_t::Bochscpu) {
+        if (Opts.Laf != LafCompcovOptions_t::Disabled &&
+            Opts.Backend != BackendType_t::Bochscpu) {
           throw CLI::ParseError("LAF-intel split-compares is only available "
                                 "with the bxcpu backend.",
                                 EXIT_FAILURE);
@@ -377,8 +397,16 @@ int main(int argc, const char *argv[]) {
           "Turn on compare coverage for memcmp, strcmp, ... (bxcpu only).");
 
   FuzzCmd->add_flag("--laf", Opts.Laf, "LAF split-compares")
-      ->default_val(false)
+      ->default_val(LafCompcovOptions_t::Disabled)
+      ->transform(CLI::CheckedTransformer(LafCompcovModeMap, CLI::ignore_case))
       ->description("Turn on LAF split-compares coverage (bxcpu only).");
+
+  FuzzCmd
+      ->add_flag("--laf-allowed-ranges", LafAllowedRangesStr,
+                 "LAF allowed ranges")
+      ->description(
+          "Specify allowed memory ranges to perform LAF comparison splitting. "
+          "Format: start1-end1,start2-end2,...");
 
   FuzzCmd->add_option("--name", Opts.TargetName, "Target name")
       ->description("Name of the target fuzzer.")
@@ -412,6 +440,12 @@ int main(int argc, const char *argv[]) {
       ->description("Connect to the master node.");
 
   CLI11_PARSE(Wtf, argc, argv);
+
+  //
+  // Process the LAF allowed ranges.
+  //
+
+  Opts.LafAllowedRanges = ParseLafAllowedRanges(LafAllowedRangesStr);
 
   //
   // Check if the user has the right target before doing any heavy lifting.
