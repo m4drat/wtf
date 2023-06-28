@@ -18,7 +18,7 @@ def run_coverage_monitor(fuzzer_name: str, instr_limit: int):
     return Popen(
         [
             *run_python,
-            WTF_SCRIPTS_DIR / "monitor-bb-coverage.py",
+            WTF_SCRIPTS_DIR / "monitor-fuzzing-session.py",
             "--wtf",
             wtf_bin,
             "--target-dir=.",
@@ -155,6 +155,18 @@ def main():
     for exp_round in range(config.get("rounds", 1)):
         print(f"Starting experiment round {exp_round + 1}")
 
+        # Execute the experiment round (alternative)
+        while execute_experiment_round(
+            exp_round,
+            results_dir,
+            round_duration,
+            alternative_config,
+            args.target_fuzzer,
+            instr_limit
+        ) is False:
+            print(f"execute_experiment_round (alt) failed on round: {exp_round + 1}")
+            time.sleep(15)
+
         # Execute the experiment round (base)
         while execute_experiment_round(
             exp_round,
@@ -168,18 +180,6 @@ def main():
             time.sleep(15)
 
         time.sleep(20)
-
-        # Execute the experiment round (alternative)
-        while execute_experiment_round(
-            exp_round,
-            results_dir,
-            round_duration,
-            alternative_config,
-            args.target_fuzzer,
-            instr_limit
-        ) is False:
-            print(f"execute_experiment_round (alt) failed on round: {exp_round + 1}")
-            time.sleep(15)
 
         # Sleep for some time between rounds
         time.sleep(20)

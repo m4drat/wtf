@@ -60,14 +60,13 @@ def start_node(
             if "laf-allowed-ranges" in node_conf:
                 args.append(f"--laf-allowed-ranges={node_conf['laf-allowed-ranges']}")
 
-            args.append(
-                [
-                    f"--name={node_conf['name']}",
-                    f"--target={target_dir.absolute()}",
-                    f"--limit={node_conf['limit']}",
-                    f"--seed={seed}",
-                ]
-            )
+            args += [
+                f"--name={node_conf['name']}",
+                f"--target={target_dir.absolute()}",
+                f"--limit={node_conf['limit']}",
+                f"--seed={seed}",
+            ]
+            print(args)
 
         elif node_conf["backend"] in ["kvm", "whv"]:
             if node_conf["limit"] > 15:
