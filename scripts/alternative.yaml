@@ -14,7 +14,8 @@ nodes:
     backend: bochscpu
     edges: 1
     compcov: 1
-    laf: 1
+    laf: user
+    laf-allowed-ranges: 0x7FF7FE680000-0x7FF7FF405000
     name: rizin
     limit: 900000
 
@@ -22,7 +23,8 @@ nodes:
     backend: bochscpu
     edges: 1
     compcov: 0
-    laf: 1
+    laf: user
+    laf-allowed-ranges: 0x7FF7FE680000-0x7FF7FF405000
     name: rizin
     limit: 900000
 

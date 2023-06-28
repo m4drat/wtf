@@ -43,6 +43,7 @@ def start_node(
         ]
     else:
         # Check whether the backend is bochscpu, bxcpu or 0 (also bochscpu)
+
         if node_conf["backend"] in ["bochscpu", "bxcpu", "0"]:
             args = [
                 wtf_bin,
@@ -51,11 +52,19 @@ def start_node(
                 f"--edges={node_conf['edges']}",
                 f"--compcov={node_conf['compcov']}",
                 f"--laf={node_conf['laf']}",
-                f"--name={node_conf['name']}",
-                f"--target={target_dir.absolute()}",
-                f"--limit={node_conf['limit']}",
-                f"--seed={seed}",
             ]
+
+            if "laf-allowed-ranges" in node_conf:
+                args.append(f"--laf-allowed-ranges={node_conf['laf-allowed-ranges']}")
+
+            args.append(
+                [
+                    f"--name={node_conf['name']}",
+                    f"--target={target_dir.absolute()}",
+                    f"--limit={node_conf['limit']}",
+                    f"--seed={seed}",
+                ]
+            )
 
         elif node_conf["backend"] in ["kvm", "whv"]:
             if node_conf["limit"] > 15:
