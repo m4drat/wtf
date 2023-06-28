@@ -12,8 +12,8 @@ import shutil
 import argparse
 import subprocess
 from pathlib import Path
+from typing import List, Any, Dict
 from merge_coverage_traces import merge_coverage_files
-from typing import List
 
 
 def generate_coverage_trace(
@@ -91,6 +91,15 @@ def generate_coverage_traces(
     return coverage_traces
 
 
+def extract_execs_sec(log_file: Path = Path("master.log")) -> int:
+    try:
+        last_line = next(reversed(list(open(log_file, "r", encoding="ascii"))))
+        return int(float(last_line.rstrip().split(" ")[8]))
+    except Exception as e:
+        print(f"Failed to extract execs/sec from {log_file}: {e}")
+        return 0
+
+
 def monitor_coverage(
     wtf: Path,
     target_fuzzer: str,
@@ -114,14 +123,17 @@ def monitor_coverage(
     processed_outputs: set = set()
     merged_coverage: set = set()
 
-    stats = {
+    stats: Dict[str, Any] = {
+        "start_time": time.time(),
         "stats": [
             {
-                "timestamp": time.time(),
+                "relative_timestamp": time.time(),
                 "coverage": 0,
                 "crashes": 0,
+                "execs_sec": 0,
+                "corpus_size": 0,
             }
-        ]
+        ],
     }
 
     try:
@@ -129,37 +141,35 @@ def monitor_coverage(
             outputs = set(Path(".").glob("outputs/*"))
             new_outputs = outputs - processed_outputs
 
-            time_to_generate_coverage_start = time.time()
+            timestamp = time.time()
+
             new_coverage_traces = generate_coverage_traces(
                 wtf, target_fuzzer, coverage_traces, new_outputs
             )
-            time_to_generate_coverage_end = time.time()
-            time_to_generate_coverage = (
-                time_to_generate_coverage_end - time_to_generate_coverage_start
-            )
 
-            timestamp = time.time()
-
-            time_to_merge_coverage_start = time.time()
             if len(new_coverage_traces) > 0:
                 merged_coverage = merge_coverage_files(
                     [aggregated_coverage] + new_coverage_traces, True
                 )
             coverage_delta = len(merged_coverage) - stats["stats"][-1]["coverage"]
-            time_to_merge_coverage_end = time.time()
-            time_to_merge_coverage = time_to_merge_coverage_end - time_to_merge_coverage_start
 
             total_crashes = len(list(Path(".").glob("crashes/*")))
             crashes_delta = total_crashes - stats["stats"][-1]["crashes"]
+            execs_sec = extract_execs_sec()
 
             print(
-                f"[{time.ctime(timestamp)}] Coverage: {len(merged_coverage)} (+{coverage_delta}), Crashes: {total_crashes} (+{crashes_delta}), Testcases: {len(outputs)} +({len(new_outputs)}), Time to generate coverage: {time_to_generate_coverage:.2f}s, Time to merge coverage: {time_to_merge_coverage:.2f}s"
+                f"[{time.ctime(timestamp)}] Coverage: {len(merged_coverage)} (+{coverage_delta}), "
+                f"Crashes: {total_crashes} (+{crashes_delta}), "
+                f"Testcases: {len(outputs)} +({len(new_outputs)}), "
+                f"Execs/sec: {execs_sec}, Corpus size: {len(processed_outputs)}"
             )
 
             entry = {
-                "timestamp": timestamp,
+                "relative_timestamp": timestamp - stats["start_time"],
                 "coverage": len(merged_coverage),
                 "crashes": total_crashes,
+                "execs_sec": execs_sec,
+                "corpus_size": len(processed_outputs),
             }
             stats["stats"].append(entry)
 
