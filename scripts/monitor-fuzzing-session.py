@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """Monitors a fuzzing session and once in a while generates a BB coverage report.
 
@@ -17,7 +17,7 @@ from merge_coverage_traces import merge_coverage_files
 
 
 def generate_coverage_trace(
-    wtf: Path, target_fuzzer: str, coverage_reports_dir: Path, inputs_dir: Path
+    wtf: Path, target_fuzzer: str, coverage_reports_dir: Path, inputs_dir: Path, instr_limit: int
 ) -> bool:
     """Generate a BB coverage trace for a given testcase.
 
@@ -26,6 +26,7 @@ def generate_coverage_trace(
         target_fuzzer (str): Name of the target fuzzer
         coverage_reports_dir (Path): Path where to store the generated coverage trace
         inputs_dir (Path): Path to the testcases directory
+        instr_limit (int): Maximum number of instructions to execute
 
     Returns:
         bool: True if coverage traces were generated successfully, False otherwise
@@ -40,6 +41,7 @@ def generate_coverage_trace(
             target_fuzzer,
             "--backend=bochscpu",
             "--state=state",
+            f"--limit={instr_limit}",
             f"--input={inputs_dir.absolute()}",
             f"--trace-path={coverage_reports_dir}",
             "--trace-type=cov",
@@ -53,7 +55,7 @@ def generate_coverage_trace(
 
 
 def generate_coverage_traces(
-    wtf: Path, target_fuzzer: str, coverage_traces_dir: Path, new_testcases: set
+    wtf: Path, target_fuzzer: str, coverage_traces_dir: Path, new_testcases: set, instr_limit: int
 ) -> List[Path]:
     """Generate BB coverage traces for new testcases.
 
@@ -62,6 +64,7 @@ def generate_coverage_traces(
         target_fuzzer (str): Name of the target fuzzer
         coverage_traces_dir (Path): Path where to store the generated coverage traces
         new_testcases (set): Set of new testcases
+        instr_limit (int): Maximum number of instructions to execute
 
     Returns:
         List[Path]: List of generated coverage traces
@@ -82,7 +85,7 @@ def generate_coverage_traces(
         coverage_report_path = coverage_traces_dir / f"{testcase.name}.trace"
         coverage_traces.append(coverage_report_path)
 
-    if generate_coverage_trace(wtf, target_fuzzer, coverage_traces_dir, testcases_dir) is not True:
+    if generate_coverage_trace(wtf, target_fuzzer, coverage_traces_dir, testcases_dir, instr_limit) is not True:
         print(f'Failed to generate coverage traces for "{testcases_dir}"')
 
     # Remove copied testcases
@@ -106,7 +109,8 @@ def monitor_coverage(
     coverage_traces: Path,
     aggregated_coverage: Path,
     output: Path,
-    monitor_interval: int,
+    monitor_interval: int, 
+    instr_limit: int
 ):
     """Monitor a fuzzing session and once in a while generate a BB coverage report.
 
@@ -117,6 +121,7 @@ def monitor_coverage(
         aggregated_coverage (Path): Path where to store the aggregated coverage trace
         output (Path): Path to the stats output file
         monitor_interval (int): Interval in seconds between each stats update
+        instr_limit (int): Maximum number of instructions to execute
     """
 
     aggregated_coverage.touch()
@@ -144,7 +149,7 @@ def monitor_coverage(
             timestamp = time.time()
 
             new_coverage_traces = generate_coverage_traces(
-                wtf, target_fuzzer, coverage_traces, new_outputs
+                wtf, target_fuzzer, coverage_traces, new_outputs, instr_limit
             )
 
             if len(new_coverage_traces) > 0:
@@ -236,6 +241,12 @@ def main():
         help="Interval in seconds between two stats updates",
         default=30,
     )
+    p.add_argument(
+        "--instr-limit",
+        type=int,
+        help="Maximum instructions executed",
+        required=True
+    )
     args = p.parse_args()
 
     if not args.target_dir.exists():
@@ -262,6 +273,7 @@ def main():
         args.aggregated_coverage,
         args.output,
         args.monitor_interval,
+        args.instr_limit,
     )
 
 

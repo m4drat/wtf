@@ -57,8 +57,3 @@ nodes:
     backend: kvm
     name: rizin
     limit: 2
-
-  kvm-none-6:
-    backend: kvm
-    name: rizin
-    limit: 2

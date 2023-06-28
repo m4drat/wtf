@@ -1,9 +1,12 @@
+#!/usr/bin/python3
+
 from termcolor import colored
 from subprocess import Popen, PIPE, DEVNULL, TimeoutExpired
 import yaml
 import argparse
 import pathlib
 import os
+import sys
 import time
 
 
@@ -111,7 +114,7 @@ def main():
 
     target_dir = pathlib.Path(config.get("target-dir", os.getcwd())).resolve()
     seed = config.get("seed", 0)
-    run_for = config.get("run-for", 31536000 * 10)
+    run_for = config.get("run-for", 60 * 60 * 24 * 365 * 10)
 
     subprocesses = []
 
@@ -123,8 +126,13 @@ def main():
     subprocesses.append(start_node(target_dir, seed, "master", config["master"], master=True))
     master = subprocesses[0]
 
-    # Wait for the master node to start (yeah, this is ugly)
-    time.sleep(10)
+    # Wait for master node to finish
+    try:
+        if master.wait(10) != 0:
+            print("Master node failed to start!")
+            exit(1)
+    except TimeoutExpired:
+        print("Master node succesfully started!")
 
     # Start all secondary nodes
     if "nodes" not in config:
@@ -134,6 +142,14 @@ def main():
     for node_name in config["nodes"]:
         node_conf = config["nodes"][node_name]
         subprocesses.append(start_node(target_dir, seed, node_name, node_conf))
+
+        last = subprocesses[-1]
+        try:
+            if last.wait(2) != 0:
+                print(f"Fuzzer-node: {node_name} failed to start!")
+                exit(1)
+        except TimeoutExpired:
+            print(f"Fuzzer-node: {node_name} succesfully started!")
 
     # Wait for master node to finish
     try:

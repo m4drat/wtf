@@ -94,7 +94,7 @@ bool Init(const Options_t &Opts, const CpuState_t &) {
                          g_Dbg.GetName(Backtrace[i], true));
             }
 
-            Backend->Stop(Crash_t(std::format(
+            Backend->Stop(Crash_t(fmt::format(
                 "crash-heaperror-{:#x}-{:#x}-{:#x}-{:#x}-{:#x}-{:#x}-{:#x}",
                 Backtrace[0], Backtrace[1], Backtrace[2], Backtrace[3],
                 Backtrace[4], Backtrace[5], Backtrace[6])));

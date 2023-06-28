@@ -1,26 +1,30 @@
+#!/usr/bin/python3
+
 from subprocess import Popen, PIPE, DEVNULL, TimeoutExpired
 import argparse
 import pathlib
 import yaml
 import os
+import psutil
 import shutil
 import time
 
 WTF_SCRIPTS_DIR = pathlib.Path(__file__).resolve().parent
 
 
-def run_coverage_monitor(fuzzer_name: str):
+def run_coverage_monitor(fuzzer_name: str, instr_limit: int):
     wtf_bin = "wtf.exe" if os.name == "nt" else "wtf"
+    run_python = ["py", "-3"] if os.name == "nt" else ["python3"]
     return Popen(
         [
-            "py",
-            "-3",
+            *run_python,
             WTF_SCRIPTS_DIR / "monitor-bb-coverage.py",
             "--wtf",
             wtf_bin,
             "--target-dir=.",
             f"--target-fuzzer={fuzzer_name}",
-            "--monitor-interval=10",
+            f"--instr-limit={instr_limit}",
+            "--monitor-interval=15",
         ],
         stdout=None,
         stderr=None,
@@ -30,16 +34,22 @@ def run_coverage_monitor(fuzzer_name: str):
 
 
 def run_configuration(configuration_name: pathlib.Path):
+    run_python = ["py", "-3"] if os.name == "nt" else ["python3"]
     return Popen(
         [
-            "py",
-            "-3",
+            *run_python,
             WTF_SCRIPTS_DIR / "run-configuration.py",
             f"{configuration_name}",
         ],
-        stdout=DEVNULL,
-        stderr=DEVNULL,
+        stdout=None,
+        stderr=None,
     )
+
+def kill(proc_pid):
+    process = psutil.Process(proc_pid)
+    for proc in process.children(recursive=True):
+        proc.kill()
+    process.kill()
 
 
 def execute_experiment_round(
@@ -48,18 +58,20 @@ def execute_experiment_round(
     round_duration: int,
     fuzzing_config: pathlib.Path,
     fuzzer_name: str,
-):
-    coverage_monitor = run_coverage_monitor(fuzzer_name)
+    instr_limit: int
+) -> bool:
+    coverage_monitor = run_coverage_monitor(fuzzer_name, instr_limit)
     configuration_executor = run_configuration(fuzzing_config)
 
     try:
         if configuration_executor.wait(round_duration) != 0:
             print("Configuration executor failed")
-            exit(1)
+            kill(coverage_monitor.pid)
+            return False
     except TimeoutExpired:
         print("Round finished, killing processes")
-        configuration_executor.kill()
-        coverage_monitor.kill()
+        kill(configuration_executor.pid)
+        kill(coverage_monitor.pid)
 
     # Save the results
     os.rename(
@@ -74,6 +86,8 @@ def execute_experiment_round(
     crashes_dir = pathlib.Path("./crashes")
     shutil.rmtree(crashes_dir, ignore_errors=True)
     crashes_dir.mkdir(parents=True, exist_ok=True)
+
+    return True
 
 
 def main():
@@ -108,9 +122,10 @@ def main():
             exit(1)
 
     results_dir = pathlib.Path(config.get("results-dir", "experiment-results")).resolve()
-    round_duration = config.get("round-duration", 24 * 60 * 60)
+    round_duration = config.get("round-duration", 6 * 60 * 60)
     base_config = pathlib.Path(config.get("base-config", None)).resolve()
     alternative_config = pathlib.Path(config.get("alternative-config", None)).resolve()
+    instr_limit = config["cov-instructions-limit"]
 
     # Check if outputs/crahes directories are not empty
     outputs_dir = pathlib.Path("./outputs")
@@ -141,22 +156,35 @@ def main():
         print(f"Starting experiment round {exp_round + 1}")
 
         # Execute the experiment round (base)
-        execute_experiment_round(
+        while execute_experiment_round(
             exp_round,
             results_dir,
             round_duration,
             base_config,
             args.target_fuzzer,
-        )
+            instr_limit
+        ) is False:
+            print(f"execute_experiment_round (base) failed on round: {exp_round + 1}")
+            time.sleep(15)
+
+        time.sleep(20)
 
         # Execute the experiment round (alternative)
-        execute_experiment_round(
+        while execute_experiment_round(
             exp_round,
             results_dir,
             round_duration,
             alternative_config,
             args.target_fuzzer,
-        )
+            instr_limit
+        ) is False:
+            print(f"execute_experiment_round (alt) failed on round: {exp_round + 1}")
+            time.sleep(15)
+
+        # Sleep for some time between rounds
+        time.sleep(20)
+
+    print("All experiments executed successfully!")
 
 
 if __name__ == "__main__":
