@@ -132,7 +132,7 @@ def monitor_coverage(
         "start_time": time.time(),
         "stats": [
             {
-                "relative_timestamp": time.time(),
+                "relative_timestamp": 0,
                 "coverage": 0,
                 "crashes": 0,
                 "execs_sec": 0,
